@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Subscription — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">YOUR PLAN</div><h1>Subscription</h1><p class="muted">Your current plan, credits, and history.</p></div>
+  <a class="btn primary" href="/plans">View plans</a>
+</div>
+
+{% if promo_active and promotion %}
+<div class="banner banner-promo">
+  <div>
+    <strong>Promotion: {{ promotion.name }}</strong>
+    <span>Pro is {{ promotion.discount_pct }}% off — Rs. {{ "{:,}".format(promotion.promo_price_pkr) }} instead of Rs. {{ "{:,}".format(promotion.normal_price_pkr) }}.</span>
+    {% if promotion.seats_remaining is defined %}<span>{{ promotion.seats_remaining }} of {{ promotion.max_seats }} seats left.</span>{% endif %}
+  </div>
+  <a class="btn primary" href="/pay?plan=pro">Get Pro now</a>
+</div>
+{% endif %}
+
+<section class="stats-grid stats-grid-3">
+  <article class="panel stat"><span>Current plan</span><strong>{{ entitlements.name }}</strong><small>{{ entitlements.monthly_clips if entitlements.monthly_clips else 'Unlimited' }} clips / month</small></article>
+  <article class="panel stat"><span>Credits</span><strong>{{ user.credits }}</strong><small>Available clip credits</small></article>
+  <article class="panel stat"><span>Subscription end date</span><strong>{% if subscription and subscription.ends_at %}{{ subscription.ends_at.strftime('%d %b %Y') }}{% elif user.plan_ends_at %}{{ user.plan_ends_at.strftime('%d %b %Y') }}{% else %}—{% endif %}</strong><small>{% if subscription %}Status: {{ subscription.status }}{% if subscription.is_promotional %} · Promotional{% endif %}{% else %}No active subscription{% endif %}</small></article>
+</section>
+
+<section class="panel">
+  <h2>Plan features</h2>
+  <ul class="feature-list">
+    <li>{{ 'Manual editing' if entitlements.manual_editing else 'Automatic editing (AI only)' }}</li>
+    <li>{% if entitlements.caption_styles == 'all' %}All caption styles{% else %}{{ entitlements.caption_styles }} caption style{{ '' if entitlements.caption_styles == 1 else 's' }}{% endif %}</li>
+    <li>{{ 'YouTube Live monitoring' if entitlements.youtube_live_monitoring else 'No YouTube Live monitoring' }}</li>
+    <li>{{ '4K export' if entitlements['4k_export'] else 'Standard export' }}</li>
+    <li>{{ 'Advanced facecam positioning' if entitlements.advanced_positioning else 'Automatic facecam positioning' }}</li>
+  </ul>
+  <p class="muted">Renewal: a new subscription period starts when you pay again. Renewing the same plan before expiry keeps your unused credits and adds the new plan credits; validity restarts for 30 days.</p>
+  <p class="muted"><strong>Plan changes need owner confirmation — contact support.</strong> To change plan, open a support request and the owner will confirm it.</p>
+  <p><a class="btn ghost" href="/support/new">Contact support</a></p>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Credit ledger</h2></div>
+  {% if ledger %}
+  <table class="table">
+    <thead><tr><th>Date</th><th>Change</th><th>Reason</th><th>Reference</th></tr></thead>
+    <tbody>
+      {% for entry in ledger %}
+      <tr>
+        <td>{{ entry.created_at.strftime('%d %b %Y, %H:%M') if entry.created_at else '' }}</td>
+        <td><span class="badge {% if entry.delta >= 0 %}badge-done{% else %}badge-failed{% endif %}">{{ '%+d' | format(entry.delta) }}</span></td>
+        <td>{{ entry.reason }}</td>
+        <td>{% if entry.ref_type %}{{ entry.ref_type }}{% if entry.ref_id %} #{{ entry.ref_id }}{% endif %}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No credit activity yet.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Subscription history</h2></div>
+  {% if history %}
+  <table class="table">
+    <thead><tr><th>Plan</th><th>Status</th><th>Started</th><th>Ends</th><th>Credits granted</th></tr></thead>
+    <tbody>
+      {% for sub in history %}
+      <tr>
+        <td>{{ sub.plan | title }}{% if sub.is_promotional %} <span class="badge badge-promo">Promo{% if sub.promo_price_pkr %} · Rs. {{ "{:,}".format(sub.promo_price_pkr) }}{% endif %}</span>{% endif %}</td>
+        <td><span class="badge badge-{{ sub.status }}">{{ sub.status }}</span></td>
+        <td>{{ sub.started_at.strftime('%d %b %Y') if sub.started_at else '' }}</td>
+        <td>{{ sub.ends_at.strftime('%d %b %Y') if sub.ends_at else '' }}</td>
+        <td>{{ sub.credits_granted }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No subscription history yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Initial Owner Setup — Z CLIPS{% endblock %}
+{% block content %}
+<section class="auth-wrap">
+  <div class="auth-card panel">
+    <div class="eyebrow">ONE-TIME SECURE INITIALIZATION</div>
+    <h1>Set up your owner account.</h1>
+    <p class="muted">Username is fixed as <strong>zclips_owner</strong>. This private setup is available only before the first owner exists.</p>
+    <form method="post" action="/owner-setup">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Private setup token</label><input type="password" name="setup_token" required autocomplete="off">
+      <label>Create owner password</label><input type="password" name="password" required minlength="16" autocomplete="new-password">
+      <label>Confirm owner password</label><input type="password" name="confirm_password" required minlength="16" autocomplete="new-password">
+      <button class="btn primary full" type="submit">Create owner account</button>
+    </form>
+    <p class="tiny">Keep the setup token private. Once an owner is created, this page closes.</p>
+  </div>
+</section>
+{% endblock %}

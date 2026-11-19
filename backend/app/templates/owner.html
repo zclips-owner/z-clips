@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Owner Dashboard — Z CLIPS{% endblock %}
+{% block content %}
+<div class="dash-head"><div><div class="eyebrow">PRIVATE OWNER CONSOLE</div><h1>Owner Dashboard</h1><p class="muted">Signed in as {{ user.username }} · Lifetime Premium</p></div><span class="pill">OWNER ACCESS</span></div>
+
+<section class="stats-grid stats-grid-4">
+  <article class="panel stat"><span>Total users</span><strong>{{ stats.users }}</strong><small>{{ stats.active }} active · {{ stats.suspended }} suspended</small></article>
+  <article class="panel stat"><span>Active subscriptions</span><strong>{{ stats.active_subscriptions }}</strong><small>Currently active plans</small></article>
+  <article class="panel stat"><span>Pending payments</span><strong>{{ stats.pending_payments }}</strong><small>{{ stats.approved_payments }} approved</small></article>
+  <article class="panel stat"><span>Revenue (approved)</span><strong>Rs. {{ "{:,}".format(stats.revenue_pkr) }}</strong><small>Sum of approved payments</small></article>
+</section>
+<section class="stats-grid stats-grid-3">
+  <article class="panel stat"><span>Total clips</span><strong>{{ stats.clips_total }}</strong><small>Generated clips</small></article>
+  <article class="panel stat"><span>Jobs queued</span><strong>{{ stats.jobs_queued }}</strong><small>Waiting to be processed</small></article>
+  <article class="panel stat"><span>Jobs processing</span><strong>{{ stats.jobs_processing }}</strong><small>Analyzing, rendering or QC</small></article>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Pending payment requests</h2><a class="link" href="/owner/payments">All payments →</a></div>
+  {% if recent_payments %}
+  <table class="table">
+    <thead><tr><th>ID</th><th>Plan</th><th>Amount</th><th>Transaction ID</th><th>Submitted</th><th></th></tr></thead>
+    <tbody>
+      {% for p in recent_payments %}
+      <tr>
+        <td>#{{ p.id }}</td>
+        <td>{{ p.plan | title }}{% if p.is_promotional %} <span class="badge badge-promo">Promo</span>{% endif %}</td>
+        <td>Rs. {{ "{:,}".format(p.amount_pkr) }}</td>
+        <td><code>{{ p.txn_id }}</code></td>
+        <td>{{ p.created_at.strftime('%d %b %Y, %H:%M') if p.created_at else '' }}</td>
+        <td><a class="btn ghost btn-sm" href="/owner/payments/{{ p.id }}">Review</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No pending payment requests.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Recent activity</h2></div>
+  {% if recent_activity %}
+  <ul class="activity-list">
+    {% for a in recent_activity %}
+    <li><span class="activity-kind">{{ a.kind }}</span><span class="activity-detail">{{ a.detail }}</span><time>{{ a.created_at.strftime('%d %b %Y, %H:%M') if a.created_at else '' }}</time></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No recent activity.</p>
+  {% endif %}
+</section>
+
+<section class="quick-actions">
+  <a class="btn primary" href="/owner/payments">Review payments</a>
+  <a class="btn ghost" href="/owner/users">Manage users</a>
+  <a class="btn ghost" href="/owner/support">Support inbox</a>
+  <a class="btn ghost" href="/owner/system">System &amp; models</a>
+</section>
+{% endblock %}

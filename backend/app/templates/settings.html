@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Settings — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">YOUR ACCOUNT</div><h1>Settings</h1><p class="muted">Your profile and clip preferences.</p></div>
+</div>
+
+<section class="panel">
+  <dl class="details">
+    <div><dt>Username</dt><dd>{{ user.username }}</dd></div>
+    <div><dt>Plan</dt><dd>{{ user.plan | title }}</dd></div>
+    <div><dt>Credits</dt><dd>{{ user.credits }}</dd></div>
+    <div><dt>Member since</dt><dd>{{ user.created_at.strftime('%d %b %Y') if user.created_at else '' }}</dd></div>
+  </dl>
+</section>
+
+<form class="panel form-card" method="post" action="/settings">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <h2>Profile</h2>
+  <label for="display_name">Display name</label>
+  <input id="display_name" name="display_name" maxlength="80" value="{{ user.display_name or '' }}" placeholder="Your display name">
+  <label for="email">Email</label>
+  <input id="email" type="email" name="email" required maxlength="254" value="{{ user.email }}">
+  <p class="hint">Your email must stay unique — it cannot match another account.</p>
+
+  <h2>Preferences</h2>
+  <label for="default_caption_style">Default caption style</label>
+  <select id="default_caption_style" name="default_caption_style">
+    {% for key, label in [('simple', 'Simple'), ('bold', 'Bold Pop'), ('karaoke', 'Karaoke'), ('minimal', 'Minimal'), ('neon', 'Neon')] %}
+    <option value="{{ key }}">{{ label }}</option>
+    {% endfor %}
+  </select>
+  <p class="hint">The server only accepts a caption style your plan allows.</p>
+  <label for="default_export_height">Default export height</label>
+  <select id="default_export_height" name="default_export_height">
+    {% for h in [1280, 1920, 3840] %}
+    <option value="{{ h }}">{{ h }}p{% if h == 3840 %} (4K){% endif %}</option>
+    {% endfor %}
+  </select>
+  <p class="hint">4K export (3840p) is a Pro feature.</p>
+
+  <button class="btn primary full" type="submit">Save settings</button>
+</form>
+<p><a class="link" href="/logout">Logout</a></p>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Plans — Z CLIPS{% endblock %}
+{% block content %}
+<div class="center-head"><div class="eyebrow">SIMPLE SUBSCRIPTIONS</div><h1>Choose your plan.</h1><p class="muted">Every plan should deliver clean, carefully rendered clips. Paid plans add capacity and creative control.</p></div>
+{% if promo_active and promotion %}
+<div class="banner banner-promo">
+  <div>
+    <strong>Promotion: {{ promotion.name }}</strong>
+    <span>Pro is {{ promotion.discount_pct }}% off — Rs. {{ "{:,}".format(promotion.promo_price_pkr) }} instead of Rs. {{ "{:,}".format(promotion.normal_price_pkr) }}.</span>
+    {% if promotion.seats_remaining is defined %}<span>{{ promotion.seats_remaining }} of {{ promotion.max_seats }} seats left.</span>{% endif %}
+    {% if promotion.ends_at %}<span>Ends {{ promotion.ends_at.strftime('%d %b %Y') }}.</span>{% endif %}
+  </div>
+  <a class="btn primary" href="/pay?plan=pro">Get Pro now</a>
+</div>
+{% endif %}
+<section class="plans-grid">
+{% for key, plan in plans.items() %}
+<article class="panel plan-card {% if key == 'pro' %}featured{% endif %}">
+  <div class="eyebrow">{{ plan.name }}</div><div class="price">{% if promo_active and key == 'pro' and promotion %}Rs. {{ "{:,}".format(promotion.promo_price_pkr) }}<small>/ month</small> <span class="badge badge-promo">was Rs. {{ "{:,}".format(plan.price_pkr) }}</span>{% else %}Rs. {{ "{:,}".format(plan.price_pkr) }}<small>/ month</small>{% endif %}</div>
+  <h3>{{ plan.monthly_clips }} clips / month</h3>
+  <ul><li>AI-assisted clip workflow</li><li>{{ 'Manual editing' if plan.manual_editing else 'Automatic editing' }}</li><li>{{ plan.caption_styles }} caption style{{ '' if plan.caption_styles == 1 else 's' }}</li><li>{{ 'YouTube Live monitoring' if plan.youtube_live_monitoring else 'No YouTube Live monitoring' }}</li><li>{{ '4K export' if plan['4k_export'] else 'Standard export' }}</li></ul>
+  {% if current_user %}
+    {% if key == 'free' %}<a class="btn {{ 'primary' if key == 'pro' else 'ghost' }} full" href="/dashboard">Current / Free plan</a>
+    {% else %}<a class="btn {{ 'primary' if key == 'pro' else 'ghost' }} full" href="/pay?plan={{ key }}">Subscribe — Rs. {{ "{:,}".format(promotion.promo_price_pkr if promo_active and key == 'pro' and promotion else plan.price_pkr) }}</a>{% endif %}
+  {% else %}
+  <a class="btn {{ 'primary' if key == 'pro' else 'ghost' }} full" href="/signup">Get started</a>
+  {% endif %}
+</article>
+{% endfor %}
+</section>
+{% endblock %}

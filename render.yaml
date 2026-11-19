@@ -1,0 +1,60 @@
+# Z CLIPS — Render Blueprint (free tier)
+# Deploys the FastAPI backend (+ clip worker in the same container) and the Next.js PWA.
+# NOTE: the free Postgres below expires after 30 days. Before that, move DATABASE_URL
+# to a permanent free Postgres (Neon) so accounts, credits and payments are never lost.
+# Render free web services sleep after 15 min idle and take ~1 min to wake on the next visit.
+
+databases:
+  - name: z-clips-db
+    plan: free
+
+services:
+  - type: web
+    name: z-clips-api
+    env: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: z-clips-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: OWNER_SETUP_TOKEN
+        generateValue: true
+      - key: PUBLIC_BASE_URL
+        fromService:
+          type: web
+          name: z-clips-api
+          property: host
+      - key: STORAGE_DIR
+        value: ./storage
+      - key: MODEL_DIR
+        value: ./storage/models
+      - key: MAX_UPLOAD_MB
+        value: "2048"
+      - key: MAX_SCREENSHOT_MB
+        value: "10"
+
+  - type: web
+    name: z-clips-pwa
+    env: node
+    plan: free
+    rootDir: pwa
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: FASTAPI_BASE_URL
+        fromService:
+          type: web
+          name: z-clips-api
+          property: host
+      - key: NEXT_PUBLIC_APP_URL
+        fromService:
+          type: web
+          name: z-clips-pwa
+          property: host

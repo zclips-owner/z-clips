@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Promotion — Owner — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">OWNER · PROMOTION</div><h1>Promotion</h1><p class="muted">Control the Pro launch promotion: seats, expiry and whether it is active.</p></div>
+</div>
+
+{% if promotion %}
+<section class="stats-grid stats-grid-4">
+  <article class="panel stat"><span>Status</span><strong>{% if promo_active %}Active{% else %}Inactive{% endif %}</strong><small>{{ promotion.name }}</small></article>
+  <article class="panel stat"><span>Seats reserved</span><strong>{{ promotion.seats_reserved }}</strong><small>Reserved, not yet used</small></article>
+  <article class="panel stat"><span>Seats used</span><strong>{{ promotion.seats_used }}</strong><small>Paid promotional subscriptions</small></article>
+  <article class="panel stat"><span>Seats remaining</span><strong>{{ promotion.seats_remaining }}</strong><small>of {{ promotion.max_seats }} max seats</small></article>
+</section>
+
+<section class="panel">
+  <dl class="details">
+    <div><dt>Discount</dt><dd>{{ promotion.discount_pct }}% off</dd></div>
+    <div><dt>Promo price</dt><dd>Rs. {{ "{:,}".format(promotion.promo_price_pkr) }}</dd></div>
+    <div><dt>Normal price</dt><dd>Rs. {{ "{:,}".format(promotion.normal_price_pkr) }}</dd></div>
+    <div><dt>Ends</dt><dd>{{ promotion.ends_at.strftime('%d %b %Y, %H:%M') if promotion.ends_at else 'No end date set' }}</dd></div>
+    <div><dt>Active flag</dt><dd>{{ 'Yes' if promotion.is_active else 'No' }}</dd></div>
+  </dl>
+</section>
+
+<form class="panel form-card" method="post" action="/owner/promotion">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <h2>Update promotion</h2>
+  <p class="muted">Seats already reserved or used are never reduced below their current values.</p>
+  <label for="max_seats">Max seats</label>
+  <input id="max_seats" type="number" name="max_seats" min="{{ promotion.seats_reserved + promotion.seats_used }}" value="{{ promotion.max_seats }}" required>
+  <label for="ends_at">Ends at</label>
+  <input id="ends_at" type="datetime-local" name="ends_at" value="{{ promotion.ends_at.strftime('%Y-%m-%dT%H:%M') if promotion.ends_at else '' }}">
+  <label class="check"><input type="checkbox" name="is_active" value="on" {% if promotion.is_active %}checked{% endif %}> Promotion is active</label>
+  <button class="btn primary full" type="submit">Save promotion</button>
+</form>
+{% else %}
+<p class="empty">No promotion is configured.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ clip.title }} — Clip Editor — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">CLIP EDITOR</div><h1>{{ clip.title }}</h1><p class="muted">Job #{{ clip.job_id }} · <span class="badge badge-{{ clip.status }}">{{ clip.status }}</span></p></div>
+  <a class="btn ghost" href="/clips">← My Clips</a>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h2>Clip details</h2></div>
+  <dl class="details">
+    <div><dt>Time range</dt><dd>{{ clip.start_s | round(1) }}s – {{ clip.end_s | round(1) }}s</dd></div>
+    <div><dt>Duration</dt><dd>{{ clip.duration_s | round(1) }}s</dd></div>
+    <div><dt>Size</dt><dd>{{ clip.width }} × {{ clip.height }}</dd></div>
+    {% if job %}<div><dt>Job status</dt><dd><span class="badge badge-{{ job.status }}">{{ job.status }}</span></dd></div>{% endif %}
+    <div><dt>Downloads</dt><dd>{{ clip.downloads }}</dd></div>
+    <div><dt>Created</dt><dd>{{ clip.created_at.strftime('%d %b %Y, %H:%M') if clip.created_at else '' }}</dd></div>
+  </dl>
+  {% if clip.status == 'approved' %}
+  <p><a class="btn primary" href="/downloads/{{ clip.id }}">Download this clip</a></p>
+  {% endif %}
+</section>
+
+{% if not can_edit %}
+<div class="alert">Editing is not available on your plan — Free plan is AI automatic only. Upgrade to Lite or Pro to edit clips manually.</div>
+{% endif %}
+
+<form class="panel form-card" method="post" action="/clips/{{ clip.id }}/edit">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <h2>Edit &amp; re-render</h2>
+  <p class="muted">Saving creates a new render job for the same source video and uses 1 credit.</p>
+  <fieldset {% if not can_edit %}disabled{% endif %}>
+    <label for="start_s">Trim start (seconds)</label>
+    <input id="start_s" type="number" name="start_s" step="0.1" min="0" value="{{ clip.start_s }}" required>
+    <label for="end_s">Trim end (seconds)</label>
+    <input id="end_s" type="number" name="end_s" step="0.1" min="0" value="{{ clip.end_s }}" required>
+    <p class="hint">Start must be before end, within the source video.</p>
+
+    <label for="caption_style">Caption style</label>
+    <select id="caption_style" name="caption_style" required>
+      {% for style in caption_styles %}
+      <option value="{{ style.key }}" {% if job and job.caption_style == style.key %}selected{% endif %}>{{ style.name }}{% if style.description %} — {{ style.description }}{% endif %}</option>
+      {% endfor %}
+    </select>
+
+    <label for="export_height">Export height</label>
+    <select id="export_height" name="export_height" required>
+      {% for h in export_heights %}
+      <option value="{{ h }}" {% if job and job.export_height == h %}selected{% endif %}>{{ h }}p{% if h == 3840 %} (4K){% endif %}</option>
+      {% endfor %}
+    </select>
+
+    <label for="facecam_mode">Facecam</label>
+    <select id="facecam_mode" name="facecam_mode">
+      <option value="auto" {% if job and job.facecam_mode == 'auto' %}selected{% endif %}>Automatic (AI decides)</option>
+      <option value="off" {% if job and job.facecam_mode == 'off' %}selected{% endif %}>Off</option>
+      <option value="manual" {% if job and job.facecam_mode == 'manual' %}selected{% endif %} {% if not entitlements.advanced_positioning %}disabled{% endif %}>Manual position{% if not entitlements.advanced_positioning %} — Pro only{% endif %}</option>
+    </select>
+    {% if not entitlements.advanced_positioning %}
+    <p class="hint">Manual facecam positioning is a Pro feature. <a href="/plans">Upgrade to Pro</a> to set the facecam position yourself.</p>
+    {% endif %}
+
+    <div class="form-grid">
+      <div><label for="facecam_x">Facecam X</label><input id="facecam_x" type="number" name="facecam_x" step="0.01" min="0" max="1" value="{{ job.facecam_x if job and job.facecam_x is not none else '' }}" {% if not entitlements.advanced_positioning %}disabled{% endif %}></div>
+      <div><label for="facecam_y">Facecam Y</label><input id="facecam_y" type="number" name="facecam_y" step="0.01" min="0" max="1" value="{{ job.facecam_y if job and job.facecam_y is not none else '' }}" {% if not entitlements.advanced_positioning %}disabled{% endif %}></div>
+      <div><label for="facecam_w">Facecam width</label><input id="facecam_w" type="number" name="facecam_w" step="0.01" min="0" max="1" value="{{ job.facecam_w if job and job.facecam_w is not none else '' }}" {% if not entitlements.advanced_positioning %}disabled{% endif %}></div>
+      <div><label for="facecam_h">Facecam height</label><input id="facecam_h" type="number" name="facecam_h" step="0.01" min="0" max="1" value="{{ job.facecam_h if job and job.facecam_h is not none else '' }}" {% if not entitlements.advanced_positioning %}disabled{% endif %}></div>
+    </div>
+    {% if not entitlements.advanced_positioning %}
+    <p class="hint">Facecam position fields are disabled on your plan — the AI positions the facecam automatically.</p>
+    {% endif %}
+
+    <button class="btn primary full" type="submit">Save &amp; re-render (uses 1 credit)</button>
+  </fieldset>
+</form>
+
+{% if clip.status == 'candidate' %}
+<section class="panel">
+  <div class="panel-head"><h2>Review this clip</h2></div>
+  <div class="quick-actions">
+    <form method="post" action="/clips/{{ clip.id }}/approve">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn primary" type="submit">Approve</button>
+    </form>
+    <form method="post" action="/clips/{{ clip.id }}/reject">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn ghost" type="submit">Reject</button>
+    </form>
+  </div>
+  <p class="muted">Approved clips appear in Downloads. Rejected clips stay in My Clips.</p>
+</section>
+{% elif clip.status == 'rejected' %}
+<p class="muted">This clip was rejected. You can still edit and re-render it above.</p>
+{% endif %}
+{% endblock %}

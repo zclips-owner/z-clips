@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Pay — {{ plan_info.name if plan_info is defined else plan | title }} — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">PAYMENT</div><h1>Pay for {{ plan_info.name if plan_info is defined and plan_info.name is defined else plan | title }}</h1><p class="muted">Pay with NayaPay, then upload your payment screenshot and transaction ID.</p></div>
+  <a class="btn ghost" href="/plans">← Plans</a>
+</div>
+
+{% if is_promotional %}
+<div class="banner banner-promo"><div><strong>Promotional price applied.</strong><span>You are paying the promotion price for this plan.</span></div></div>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-head"><h2>Amount due</h2></div>
+  <p class="price">Rs. {{ "{:,}".format(amount_pkr) }}</p>
+  <p class="muted">Plan: {{ plan_info.name if plan_info is defined and plan_info.name is defined else plan | title }}{% if plan_info is defined and plan_info.monthly_clips is defined %} · {{ plan_info.monthly_clips }} clips / month{% endif %}{% if is_promotional %} · Promotional price{% endif %}</p>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Pay with NayaPay</h2></div>
+  <p class="instruction"><strong>NayaPay Number: 03296195965</strong></p>
+  <dl class="details">
+    <div><dt>Account holder</dt><dd>Zain ul abideen</dd></div>
+  </dl>
+  {% if qr_available %}
+  <div class="qr-box">
+    <img src="/pay/qr" alt="NayaPay QR code for account holder Zain ul abideen" width="220" height="220">
+    <p class="muted">Scan with your NayaPay app to pay Rs. {{ "{:,}".format(amount_pkr) }}.</p>
+  </div>
+  {% else %}
+  <div class="alert">QR code not yet provided by the owner.</div>
+  <p class="muted">Pay using the NayaPay number above instead.</p>
+  {% endif %}
+  <p class="instruction">{{ qr_instruction if qr_instruction is defined and qr_instruction else 'If scanning the QR code does not show the account holder name Zain ul abideen, use the NayaPay number 03296195965 instead.' }}</p>
+</section>
+
+<form class="panel form-card" method="post" action="/pay" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="plan" value="{{ plan }}">
+  <h2>Submit your payment</h2>
+  <p class="muted">After paying, enter the transaction ID from NayaPay and upload a screenshot of the payment. The owner reviews every payment manually.</p>
+  <label for="txn_id">Transaction ID</label>
+  <input id="txn_id" name="txn_id" required maxlength="120" placeholder="e.g. the transaction ID shown in NayaPay">
+  <label for="screenshot">Payment screenshot (image, max 10 MB)</label>
+  <input id="screenshot" type="file" name="screenshot" accept="image/png,image/jpeg,image/webp" required>
+  <button class="btn primary full" type="submit">Submit payment — Rs. {{ "{:,}".format(amount_pkr) }}</button>
+</form>
+<p><a class="link" href="/payments">View my payment history →</a></p>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ thread.subject }} — Support — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">SUPPORT THREAD</div><h1>{{ thread.subject }}</h1><p class="muted">Opened {{ thread.created_at.strftime('%d %b %Y, %H:%M') if thread.created_at else '' }} · <span class="badge badge-{{ thread.status }}">{{ thread.status }}</span></p></div>
+  <a class="btn ghost" href="{% if is_owner %}/owner/support{% else %}/support{% endif %}">← Back</a>
+</div>
+
+<section class="panel">
+  {% if messages %}
+  <ul class="message-list">
+    {% for m in messages %}
+    <li class="message message-{{ m.author_role }}">
+      <div class="message-meta"><strong>{{ 'Owner' if m.author_role == 'owner' else 'You' if not is_owner else 'Customer' }}</strong><time>{{ m.created_at.strftime('%d %b %Y, %H:%M') if m.created_at else '' }}</time></div>
+      <p>{{ m.body }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No messages in this thread yet.</p>
+  {% endif %}
+</section>
+
+{% if thread.status == 'closed' and not is_owner %}
+<div class="banner banner-more"><div><strong>This thread is closed.</strong><span>Replying will reopen it.</span></div></div>
+{% endif %}
+
+<form class="panel form-card" method="post" action="{% if is_owner %}/owner/support/{{ thread.id }}/reply{% else %}/support/{{ thread.id }}/reply{% endif %}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label for="message">Your reply</label>
+  <textarea id="message" name="message" required rows="4" placeholder="Write your reply…"></textarea>
+  <button class="btn primary full" type="submit">Send reply</button>
+</form>
+
+{% if is_owner and thread.status != 'closed' %}
+<form method="post" action="/owner/support/{{ thread.id }}/close">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <button class="btn ghost" type="submit">Close thread</button>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Payment History — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">PAYMENTS</div><h1>Payment History</h1><p class="muted">Your own NayaPay payment requests, newest first.</p></div>
+  <a class="btn primary" href="/plans">Buy a plan</a>
+</div>
+
+<section class="panel">
+  {% if payments %}
+  <table class="table">
+    <thead><tr><th>ID</th><th>Plan</th><th>Amount</th><th>Transaction ID</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
+    <tbody>
+      {% for p in payments %}
+      <tr>
+        <td>#{{ p.id }}</td>
+        <td>{{ p.plan | title }}{% if p.is_promotional %} <span class="badge badge-promo">Promo</span>{% endif %}</td>
+        <td>Rs. {{ "{:,}".format(p.amount_pkr) }}</td>
+        <td><code>{{ p.txn_id }}</code></td>
+        <td><span class="badge badge-{{ p.status }}">{{ p.status }}</span></td>
+        <td>{{ p.created_at.strftime('%d %b %Y, %H:%M') if p.created_at else '' }}</td>
+        <td><a class="btn ghost btn-sm" href="/pay/waiting/{{ p.id }}">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No payments yet. When you buy a plan, your payment requests will appear here.</p>
+  <p><a class="btn primary" href="/plans">View plans</a></p>
+  {% endif %}
+</section>
+{% endblock %}

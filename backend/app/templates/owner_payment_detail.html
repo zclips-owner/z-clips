@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Payment #{{ payment.id }} — Owner — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">OWNER · PAYMENT REVIEW</div><h1>Payment #{{ payment.id }}</h1><p class="muted"><span class="badge badge-{{ payment.status }}">{{ payment.status }}</span></p></div>
+  <a class="btn ghost" href="/owner/payments">← All payments</a>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h2>Payment details</h2></div>
+  <dl class="details">
+    <div><dt>Payer</dt><dd>{% if payer %}<a href="/owner/users/{{ payer.id }}">{{ payer.username }}</a> ({{ payer.email }}){% else %}User #{{ payment.user_id }}{% endif %}</dd></div>
+    <div><dt>Plan</dt><dd>{{ payment.plan | title }}{% if payment.is_promotional %} <span class="badge badge-promo">Promo</span>{% endif %}</dd></div>
+    <div><dt>Amount</dt><dd>Rs. {{ "{:,}".format(payment.amount_pkr) }}</dd></div>
+    <div><dt>Transaction ID</dt><dd><code>{{ payment.txn_id }}</code></dd></div>
+    <div><dt>Classification</dt><dd><span class="badge badge-{{ classification }}">{{ classification }}</span></dd></div>
+    <div><dt>Submitted</dt><dd>{{ payment.created_at.strftime('%d %b %Y, %H:%M') if payment.created_at else '' }}</dd></div>
+    {% if payment.decided_at %}<div><dt>Decided</dt><dd>{{ payment.decided_at.strftime('%d %b %Y, %H:%M') }}</dd></div>{% endif %}
+    {% if payment.review_note %}<div><dt>Review note</dt><dd>{{ payment.review_note }}</dd></div>{% endif %}
+  </dl>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Payment screenshot</h2></div>
+  {% if screenshot_url %}
+  <a href="{{ screenshot_url }}" target="_blank" rel="noopener"><img class="screenshot" src="{{ screenshot_url }}" alt="Payment screenshot for payment #{{ payment.id }}"></a>
+  <p class="muted">Click the screenshot to open it full size. Check that the transaction ID and amount match this request.</p>
+  {% else %}
+  <p class="empty">No screenshot available for this payment.</p>
+  {% endif %}
+</section>
+
+{% if payment.status == 'pending' %}
+<section class="panel">
+  <div class="panel-head"><h2>Decision</h2></div>
+  {% if plan_change_blocked %}
+  <div class="alert">Approve is disabled: this payment is a plan change, and plan changes need explicit owner confirmation — approve it from the user's page instead, using the explicit plan-change action there. Approving here would apply the payment automatically, which is not allowed for plan changes.</div>
+  {% endif %}
+  <div class="quick-actions">
+    <form method="post" action="/owner/payments/{{ payment.id }}/approve">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn primary" type="submit" {% if plan_change_blocked %}disabled title="Disabled: this is a plan change — confirm it explicitly on the user's page"{% endif %}>Approve</button>
+    </form>
+  </div>
+  <form class="form-card" method="post" action="/owner/payments/{{ payment.id }}/reject">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="note">Rejection note (shown to the customer)</label>
+    <textarea id="note" name="note" rows="3" placeholder="e.g. Transaction ID does not match the screenshot"></textarea>
+    <button class="btn ghost" type="submit">Reject payment</button>
+  </form>
+</section>
+{% else %}
+<p class="muted">This payment has already been decided ({{ payment.status }}).</p>
+{% endif %}
+{% endblock %}

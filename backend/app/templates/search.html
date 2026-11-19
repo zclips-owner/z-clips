@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Search — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">SEARCH</div><h1>Search results{% if q %} for “{{ q }}”{% endif %}</h1><p class="muted">Searches your clips by title{% if is_owner %} and users by username{% endif %}.</p></div>
+</div>
+
+<form class="filter-bar" method="get" action="/search">
+  <input type="search" name="q" placeholder="Search…" value="{{ q or '' }}">
+  <button class="btn ghost" type="submit">Search</button>
+</form>
+
+<section class="panel">
+  <div class="panel-head"><h2>Clips</h2></div>
+  {% if clips %}
+  <table class="table">
+    <thead><tr><th>Title</th><th>Status</th><th>Duration</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+      {% for clip in clips %}
+      <tr>
+        <td>{{ clip.title }}</td>
+        <td><span class="badge badge-{{ clip.status }}">{{ clip.status }}</span></td>
+        <td>{{ clip.duration_s | round(1) }}s</td>
+        <td>{{ clip.created_at.strftime('%d %b %Y') if clip.created_at else '' }}</td>
+        <td><a class="btn ghost btn-sm" href="/clips/{{ clip.id }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">{% if q %}No clips match “{{ q }}”.{% else %}Enter a search term above to find your clips.{% endif %}</p>
+  {% endif %}
+</section>
+
+{% if is_owner %}
+<section class="panel">
+  <div class="panel-head"><h2>Users</h2></div>
+  {% if users %}
+  <table class="table">
+    <thead><tr><th>Username</th><th>Email</th><th>Plan</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.username }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.plan | title }}</td>
+        <td>{% if u.is_suspended %}<span class="badge badge-failed">suspended</span>{% elif not u.is_active %}<span class="badge badge-rejected">inactive</span>{% else %}<span class="badge badge-done">active</span>{% endif %}</td>
+        <td><a class="btn ghost btn-sm" href="/owner/users/{{ u.id }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">{% if q %}No users match “{{ q }}”.{% else %}Enter a search term above to find users.{% endif %}</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

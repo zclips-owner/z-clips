@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Job #{{ job.id }} — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">CLIP JOB</div><h1>{{ job.title or ('Job #' ~ job.id) }}</h1><p class="muted">Created {{ job.created_at.strftime('%d %b %Y, %H:%M') if job.created_at else '' }}</p></div>
+  <a class="btn ghost" href="/clips">← My Clips</a>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h2>Status</h2><span class="badge badge-{{ job.status }}">{{ job.status }}</span></div>
+  <div class="progress progress-lg"><div class="progress-fill" style="width: {{ job.progress }}%"></div></div>
+  <p class="muted">{{ job.progress }}% complete</p>
+  <dl class="details">
+    <div><dt>Caption style</dt><dd>{{ job.caption_style }}</dd></div>
+    <div><dt>Export height</dt><dd>{{ job.export_height }}p</dd></div>
+    <div><dt>Facecam</dt><dd>{{ job.facecam_mode }}</dd></div>
+    <div><dt>Attempts</dt><dd>{{ job.attempts }}</dd></div>
+  </dl>
+  {% if job.status == 'failed' or job.status == 'needs_model' %}
+  <div class="alert">{% if job.error %}{{ job.error }}{% elif job.status == 'needs_model' %}The transcription model needed for this job is not installed. Ask the owner to install it from System &amp; Models.{% else %}This job failed.{% endif %}</div>
+  {% endif %}
+  {% if job.error and job.status != 'failed' %}<p class="muted">Note: {{ job.error }}</p>{% endif %}
+</section>
+
+{% if source %}
+<section class="panel">
+  <div class="panel-head"><h2>Source video</h2></div>
+  <dl class="details">
+    <div><dt>Title</dt><dd>{{ source.title }}</dd></div>
+    <div><dt>Type</dt><dd>{{ source.source_type }}{% if source.source_type == 'url' %} — {{ source.source_url }}{% elif source.original_filename %} — {{ source.original_filename }}{% endif %}</dd></div>
+    <div><dt>Duration</dt><dd>{% if source.duration_s %}{{ source.duration_s | round(1) }}s{% else %}Unknown{% endif %}</dd></div>
+    <div><dt>Status</dt><dd>{{ source.status }}</dd></div>
+    {% if source.error %}<div><dt>Error</dt><dd>{{ source.error }}</dd></div>{% endif %}
+  </dl>
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-head"><h2>Clips from this job</h2></div>
+  {% if clips %}
+  <table class="table">
+    <thead><tr><th>Title</th><th>Status</th><th>Time</th><th>Duration</th><th></th></tr></thead>
+    <tbody>
+      {% for clip in clips %}
+      <tr>
+        <td>{{ clip.title }}</td>
+        <td><span class="badge badge-{{ clip.status }}">{{ clip.status }}</span></td>
+        <td>{{ clip.start_s | round(1) }}s – {{ clip.end_s | round(1) }}s</td>
+        <td>{{ clip.duration_s | round(1) }}s</td>
+        <td><a class="btn ghost btn-sm" href="/clips/{{ clip.id }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">{% if job.status == 'done' %}This job finished but produced no clips.{% elif job.status in ['failed', 'needs_model'] %}No clips were produced because the job did not complete.{% else %}No clips yet — the job is still {{ job.status }}. Refresh this page to check again.{% endif %}</p>
+  {% endif %}
+</section>
+
+{% if job.log %}
+<section class="panel">
+  <div class="panel-head"><h2>Job log</h2></div>
+  <pre class="log">{{ job.log }}</pre>
+</section>
+{% endif %}
+{% endblock %}

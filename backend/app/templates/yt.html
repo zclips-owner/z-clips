@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}YT Monitoring — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">YOUTUBE MONITORING</div><h1>YT Monitoring</h1><p class="muted">Monitor your YouTube channels for live streams. Pro only.</p></div>
+</div>
+
+{% if not can_monitor %}
+<section class="panel empty-state">
+  <div class="feature-icon">◉</div>
+  <h2>YT Monitoring is locked.</h2>
+  <p>YouTube Live monitoring is a Pro feature. Upgrade to Pro to add channels and check their live status.</p>
+  <a class="btn primary" href="/plans">Upgrade to Pro</a>
+</section>
+{% else %}
+{% if not api_configured %}
+<div class="alert">YouTube API not configured. Live-status checks cannot call the YouTube Data API yet — channels will show “not_configured” until the owner configures a YouTube API key. Adding a channel and authorising ingestion still work.</div>
+{% endif %}
+
+<form class="panel form-card" method="post" action="/yt/channels">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <h2>Add a channel</h2>
+  <label for="channel_url">YouTube channel URL or @handle</label>
+  <input id="channel_url" name="channel_url" required maxlength="500" placeholder="https://www.youtube.com/@yourchannel or @yourchannel">
+  <button class="btn primary full" type="submit">Add channel</button>
+</form>
+
+<section class="panel">
+  <div class="panel-head"><h2>Your channels</h2></div>
+  {% if channels %}
+  {% for ch in channels %}
+  <article class="channel-card">
+    <div class="channel-head">
+      <div>
+        <h3>{{ ch.display_name or ch.channel_handle or ch.channel_url }}</h3>
+        <p class="muted">{{ ch.channel_url }}{% if ch.channel_id %} · ID: {{ ch.channel_id }}{% endif %}</p>
+      </div>
+      <span class="badge {% if ch.is_live %}badge-live{% elif ch.is_live == false %}badge-offline{% else %}badge-not-configured{% endif %}">{% if ch.is_live %}live{% elif ch.is_live == false %}offline{% else %}not_configured{% endif %}</span>
+    </div>
+    <dl class="details">
+      <div><dt>Last status</dt><dd>{{ ch.last_status }}</dd></div>
+      <div><dt>Last checked</dt><dd>{{ ch.last_checked_at.strftime('%d %b %Y, %H:%M') if ch.last_checked_at else 'Never' }}</dd></div>
+      {% if ch.live_video_id %}<div><dt>Live video</dt><dd>{{ ch.live_title }} ({{ ch.live_video_id }})</dd></div>{% endif %}
+      <div><dt>Ingestion</dt><dd><span class="badge badge-{{ ch.ingestion_state }}">{{ ch.ingestion_state }}</span></dd></div>
+      {% if ch.authorized_source_note %}<div><dt>Authorised source</dt><dd>{{ ch.authorized_source_note }}</dd></div>{% endif %}
+    </dl>
+    <div class="quick-actions">
+      <form method="post" action="/yt/channels/{{ ch.id }}/check">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn ghost btn-sm" type="submit">Check live status</button>
+      </form>
+      <form method="post" action="/yt/channels/{{ ch.id }}/delete" onsubmit="return confirm('Delete this channel?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn ghost btn-sm" type="submit">Delete</button>
+      </form>
+    </div>
+    {% if ch.ingestion_state != 'authorized' %}
+    <form class="form-inline" method="post" action="/yt/channels/{{ ch.id }}/authorize">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label for="note-{{ ch.id }}">Authorise ingestion — describe the authorised source</label>
+      <input id="note-{{ ch.id }}" name="note" required maxlength="500" placeholder="e.g. my own channel, VOD file uploaded by me">
+      <button class="btn primary btn-sm" type="submit">Authorise ingestion</button>
+    </form>
+    <p class="hint">Authorising records your permission for ingestion from the source you describe. It does not download anything.</p>
+    {% endif %}
+  </article>
+  {% endfor %}
+  {% else %}
+  <p class="empty">No channels yet. Add your first YouTube channel above.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

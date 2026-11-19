@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}{{ target.username }} — User Management — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">OWNER · USER DETAIL</div><h1>{{ target.display_name or target.username }}</h1><p class="muted">@{{ target.username }} · {{ target.email }}</p></div>
+  <a class="btn ghost" href="/owner/users">← All users</a>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h2>Account</h2><span>{% if target.is_suspended %}<span class="badge badge-failed">suspended</span>{% elif not target.is_active %}<span class="badge badge-rejected">inactive</span>{% else %}<span class="badge badge-done">active</span>{% endif %}</span></div>
+  <dl class="details">
+    <div><dt>Role</dt><dd>{{ target.role }}</dd></div>
+    <div><dt>Plan</dt><dd>{{ target.plan | title }}{% if target.complimentary_premium %} · Complimentary Premium{% endif %}</dd></div>
+    <div><dt>Credits</dt><dd>{{ target.credits }}</dd></div>
+    <div><dt>Clips used</dt><dd>{{ target.clips_used }}</dd></div>
+    <div><dt>Plan ends</dt><dd>{{ target.plan_ends_at.strftime('%d %b %Y') if target.plan_ends_at else '—' }}</dd></div>
+    <div><dt>Joined</dt><dd>{{ target.created_at.strftime('%d %b %Y') if target.created_at else '' }}</dd></div>
+  </dl>
+</section>
+
+{% if target.role == 'owner' %}
+<div class="alert">This is the owner account. Admin actions are not available on it.</div>
+{% else %}
+<section class="panel">
+  <div class="panel-head"><h2>Admin actions</h2></div>
+  <div class="admin-grid">
+    <form class="form-card" method="post" action="/owner/users/{{ target.id }}/status">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <h3>Account status</h3>
+      <label for="action">Action</label>
+      <select id="action" name="action" required>
+        <option value="activate">Activate</option>
+        <option value="deactivate">Deactivate</option>
+        <option value="suspend">Suspend</option>
+        <option value="unsuspend">Unsuspend</option>
+      </select>
+      <button class="btn ghost full" type="submit">Apply status</button>
+    </form>
+
+    <form class="form-card" method="post" action="/owner/users/{{ target.id }}/plan">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <h3>Change plan (explicit)</h3>
+      <label for="plan">New plan</label>
+      <select id="plan" name="plan" required>
+        <option value="free">Free</option>
+        <option value="lite">Monthly Lite</option>
+        <option value="pro">Monthly Pro</option>
+      </select>
+      <p class="hint">Sets the plan and credits to the new plan allowance; plan ends 30 days from now.</p>
+      <label class="check"><input type="checkbox" name="confirm" value="yes" required> I confirm this plan change (required)</label>
+      <button class="btn primary full" type="submit">Change plan</button>
+    </form>
+
+    <form class="form-card" method="post" action="/owner/users/{{ target.id }}/credits">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <h3>Adjust credits</h3>
+      <label for="delta">Change in credits (can be negative)</label>
+      <input id="delta" type="number" name="delta" required placeholder="e.g. 5 or -2">
+      <label for="reason">Reason</label>
+      <input id="reason" name="reason" required maxlength="120" placeholder="e.g. Goodwill credit">
+      <button class="btn ghost full" type="submit">Adjust credits</button>
+    </form>
+
+    <form class="form-card" method="post" action="/owner/users/{{ target.id }}/extend">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <h3>Extend plan</h3>
+      <label for="days">Days to extend (1–365)</label>
+      <input id="days" type="number" name="days" min="1" max="365" required placeholder="e.g. 7">
+      <button class="btn ghost full" type="submit">Extend plan</button>
+    </form>
+
+    <form class="form-card" method="post" action="/owner/users/{{ target.id }}/complimentary">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <h3>Complimentary Premium</h3>
+      <label for="enable">Complimentary Premium</label>
+      <select id="enable" name="enable" required>
+        <option value="on" {% if target.complimentary_premium %}selected{% endif %}>Grant (on)</option>
+        <option value="off" {% if not target.complimentary_premium %}selected{% endif %}>Revoke (off)</option>
+      </select>
+      <button class="btn ghost full" type="submit">Save</button>
+    </form>
+  </div>
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-head"><h2>Subscriptions</h2></div>
+  {% if subscriptions %}
+  <table class="table">
+    <thead><tr><th>Plan</th><th>Status</th><th>Started</th><th>Ends</th><th>Credits granted</th></tr></thead>
+    <tbody>
+      {% for sub in subscriptions %}
+      <tr>
+        <td>{{ sub.plan | title }}{% if sub.is_promotional %} <span class="badge badge-promo">Promo</span>{% endif %}</td>
+        <td><span class="badge badge-{{ sub.status }}">{{ sub.status }}</span></td>
+        <td>{{ sub.started_at.strftime('%d %b %Y') if sub.started_at else '' }}</td>
+        <td>{{ sub.ends_at.strftime('%d %b %Y') if sub.ends_at else '' }}</td>
+        <td>{{ sub.credits_granted }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No subscriptions for this user.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Credit ledger</h2></div>
+  {% if ledger %}
+  <table class="table">
+    <thead><tr><th>Date</th><th>Change</th><th>Reason</th><th>Reference</th></tr></thead>
+    <tbody>
+      {% for entry in ledger %}
+      <tr>
+        <td>{{ entry.created_at.strftime('%d %b %Y, %H:%M') if entry.created_at else '' }}</td>
+        <td><span class="badge {% if entry.delta >= 0 %}badge-done{% else %}badge-failed{% endif %}">{{ '%+d' | format(entry.delta) }}</span></td>
+        <td>{{ entry.reason }}</td>
+        <td>{% if entry.ref_type %}{{ entry.ref_type }}{% if entry.ref_id %} #{{ entry.ref_id }}{% endif %}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No credit ledger entries for this user.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Payments</h2></div>
+  {% if payments %}
+  <table class="table">
+    <thead><tr><th>ID</th><th>Plan</th><th>Amount</th><th>Transaction ID</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
+    <tbody>
+      {% for p in payments %}
+      <tr>
+        <td>#{{ p.id }}</td>
+        <td>{{ p.plan | title }}{% if p.is_promotional %} <span class="badge badge-promo">Promo</span>{% endif %}</td>
+        <td>Rs. {{ "{:,}".format(p.amount_pkr) }}</td>
+        <td><code>{{ p.txn_id }}</code></td>
+        <td><span class="badge badge-{{ p.status }}">{{ p.status }}</span></td>
+        <td>{{ p.created_at.strftime('%d %b %Y, %H:%M') if p.created_at else '' }}</td>
+        <td><a class="btn ghost btn-sm" href="/owner/payments/{{ p.id }}">Review</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No payments from this user.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Activity</h2></div>
+  {% if activity %}
+  <ul class="activity-list">
+    {% for a in activity %}
+    <li><span class="activity-kind">{{ a.kind }}</span><span class="activity-detail">{{ a.detail }}</span><time>{{ a.created_at.strftime('%d %b %Y, %H:%M') if a.created_at else '' }}</time></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No activity recorded for this user.</p>
+  {% endif %}
+</section>
+{% endblock %}

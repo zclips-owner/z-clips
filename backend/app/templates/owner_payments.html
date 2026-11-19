@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Payment Requests — Owner — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">OWNER · PAYMENTS</div><h1>Payment Requests</h1><p class="muted">All NayaPay payment requests from customers.</p></div>
+</div>
+
+<div class="tabs">
+  <a class="tab {% if not filter_status or filter_status == 'all' %}active{% endif %}" href="/owner/payments">All</a>
+  <a class="tab {% if filter_status == 'pending' %}active{% endif %}" href="/owner/payments?status=pending">Pending</a>
+  <a class="tab {% if filter_status == 'approved' %}active{% endif %}" href="/owner/payments?status=approved">Approved</a>
+  <a class="tab {% if filter_status == 'rejected' %}active{% endif %}" href="/owner/payments?status=rejected">Rejected</a>
+</div>
+
+<section class="panel">
+  {% if payments %}
+  <table class="table">
+    <thead><tr><th>ID</th><th>User</th><th>Plan</th><th>Amount</th><th>Transaction ID</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
+    <tbody>
+      {% for p in payments %}
+      <tr>
+        <td>#{{ p.id }}</td>
+        <td>{{ p.user.username if p.user is defined and p.user else ('User #' ~ p.user_id) }}</td>
+        <td>{{ p.plan | title }}{% if p.is_promotional %} <span class="badge badge-promo">Promo</span>{% endif %}</td>
+        <td>Rs. {{ "{:,}".format(p.amount_pkr) }}</td>
+        <td><code>{{ p.txn_id }}</code></td>
+        <td><span class="badge badge-{{ p.status }}">{{ p.status }}</span></td>
+        <td>{{ p.created_at.strftime('%d %b %Y, %H:%M') if p.created_at else '' }}</td>
+        <td><a class="btn ghost btn-sm" href="/owner/payments/{{ p.id }}">Review</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">{% if filter_status and filter_status != 'all' %}No {{ filter_status }} payment requests.{% else %}No payment requests yet.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

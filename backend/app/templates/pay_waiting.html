@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Payment {{ payment.status | title }} — Z CLIPS{% endblock %}
+{% block extra_head %}<meta http-equiv="refresh" content="15">{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">PAYMENT STATUS</div><h1>Payment #{{ payment.id }}</h1><p class="muted">This page refreshes automatically every 15 seconds.</p></div>
+  <a class="btn ghost" href="/payments">← Payment history</a>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h2>Status</h2><span class="badge badge-{{ payment.status }}">{{ payment.status }}</span></div>
+  <dl class="details">
+    <div><dt>Plan</dt><dd>{{ payment.plan | title }}{% if payment.is_promotional %} <span class="badge badge-promo">Promo</span>{% endif %}</dd></div>
+    <div><dt>Amount</dt><dd>Rs. {{ "{:,}".format(payment.amount_pkr) }}</dd></div>
+    <div><dt>Transaction ID</dt><dd><code>{{ payment.txn_id }}</code></dd></div>
+    <div><dt>Submitted</dt><dd>{{ payment.created_at.strftime('%d %b %Y, %H:%M') if payment.created_at else '' }}</dd></div>
+    {% if payment.decided_at %}<div><dt>Decided</dt><dd>{{ payment.decided_at.strftime('%d %b %Y, %H:%M') }}</dd></div>{% endif %}
+  </dl>
+
+  {% if payment.status == 'pending' %}
+  <div class="banner banner-more"><div><strong>Waiting for owner review.</strong><span>Your payment is being reviewed. This page will update automatically when the owner approves or rejects it.</span></div></div>
+  {% elif payment.status == 'approved' %}
+  <div class="alert-ok">Your payment was approved. Your plan is now active.</div>
+  <p><a class="btn primary" href="/subscription">Go to my subscription</a></p>
+  {% elif payment.status == 'rejected' %}
+  <div class="alert">Your payment was rejected.{% if payment.review_note %} Owner note: {{ payment.review_note }}{% endif %}</div>
+  <p><a class="btn primary" href="/pay?plan={{ payment.plan }}">Resubmit payment</a></p>
+  {% endif %}
+</section>
+{% endblock %}

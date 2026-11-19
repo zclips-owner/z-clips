@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Help &amp; Support — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">HELP &amp; SUPPORT</div><h1>Support</h1><p class="muted">Your support requests. The owner replies here.</p></div>
+  <a class="btn primary" href="/support/new">＋ New request</a>
+</div>
+
+<section class="panel">
+  {% if threads %}
+  <table class="table">
+    <thead><tr><th>Subject</th><th>Status</th><th>Created</th><th>Updated</th><th></th></tr></thead>
+    <tbody>
+      {% for t in threads %}
+      <tr>
+        <td>{{ t.subject }}</td>
+        <td><span class="badge badge-{{ t.status }}">{{ t.status }}</span></td>
+        <td>{{ t.created_at.strftime('%d %b %Y, %H:%M') if t.created_at else '' }}</td>
+        <td>{{ t.updated_at.strftime('%d %b %Y, %H:%M') if t.updated_at else '' }}</td>
+        <td><a class="btn ghost btn-sm" href="/support/{{ t.id }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No support requests yet. If something is wrong, or you need a plan change confirmed, open a new request.</p>
+  <p><a class="btn primary" href="/support/new">New request</a></p>
+  {% endif %}
+</section>
+{% endblock %}

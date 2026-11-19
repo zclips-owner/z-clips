@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Create New Clip — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">CREATE</div><h1>Create New Clip</h1><p class="muted">Upload a video or paste a source URL. Creating a clip uses 1 credit.</p></div>
+  <a class="btn ghost" href="/clips">← My Clips</a>
+</div>
+
+<div class="panel">
+  <p><strong>Credits available: {{ credits }}</strong> · Plan: {{ entitlements.name }} ({{ entitlements.monthly_clips if entitlements.monthly_clips else 'unlimited' }} clips / month)</p>
+</div>
+
+{% if not can_create or credits == 0 %}
+<div class="alert">You have no credits left, so you cannot create a clip right now. Upgrade your plan or wait for your next subscription period to get more clips.</div>
+<p><a class="btn primary" href="/plans">View plans</a></p>
+{% else %}
+<form class="panel form-card" method="post" action="/clips/new" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label for="title">Title</label>
+  <input id="title" name="title" required maxlength="200" placeholder="e.g. Best moments from my stream">
+
+  <label for="caption_style">Caption style</label>
+  <select id="caption_style" name="caption_style" required>
+    {% for style in caption_styles %}
+    <option value="{{ style.key }}">{{ style.name }}{% if style.description %} — {{ style.description }}{% endif %}</option>
+    {% endfor %}
+  </select>
+  <p class="hint">Only the caption styles included in your plan are listed here.</p>
+
+  <label for="export_height">Export height</label>
+  <select id="export_height" name="export_height" required>
+    {% for h in export_heights %}
+    <option value="{{ h }}">{{ h }}p{% if h == 3840 %} (4K){% endif %}</option>
+    {% endfor %}
+  </select>
+
+  <label for="facecam_mode">Facecam</label>
+  <select id="facecam_mode" name="facecam_mode">
+    <option value="auto" selected>Automatic (AI decides)</option>
+    <option value="off">Off</option>
+    {% if entitlements.advanced_positioning %}
+    <option value="manual">Manual position (Pro)</option>
+    {% else %}
+    <option value="manual" disabled>Manual position — Pro only</option>
+    {% endif %}
+  </select>
+  {% if not entitlements.advanced_positioning %}
+  <p class="hint">Manual facecam positioning is a Pro feature. <a href="/plans">Upgrade to Pro</a> to set the facecam position yourself.</p>
+  {% endif %}
+
+  <label for="video">Video file</label>
+  <input id="video" type="file" name="video" accept="video/*">
+  <p class="hint">Upload a video file, or paste a source URL below instead.</p>
+
+  <label for="source_url">…or source URL</label>
+  <input id="source_url" type="url" name="source_url" placeholder="https://… (an authorised source video URL)">
+
+  <button class="btn primary full" type="submit">Create clip (uses 1 credit)</button>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Downloads — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">YOUR APPROVED CLIPS</div><h1>Downloads</h1><p class="muted">Only approved clips appear here. Each download is counted.</p></div>
+  <a class="btn ghost" href="/clips">← My Clips</a>
+</div>
+
+<section class="panel">
+  {% if clips %}
+  <table class="table">
+    <thead><tr><th>Title</th><th>Size</th><th>Duration</th><th>Downloads</th><th>Approved</th><th></th></tr></thead>
+    <tbody>
+      {% for clip in clips %}
+      <tr>
+        <td>{{ clip.title }}</td>
+        <td>{{ clip.width }} × {{ clip.height }}</td>
+        <td>{{ clip.duration_s | round(1) }}s</td>
+        <td>{{ clip.downloads }}</td>
+        <td>{{ clip.approved_at.strftime('%d %b %Y') if clip.approved_at else '' }}</td>
+        <td><a class="btn primary btn-sm" href="/downloads/{{ clip.id }}">Download</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No approved clips yet. Approve a candidate clip in My Clips and it will appear here ready to download.</p>
+  <p><a class="btn primary" href="/clips">Go to My Clips</a></p>
+  {% endif %}
+</section>
+{% endblock %}

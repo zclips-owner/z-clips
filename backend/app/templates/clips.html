@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}My Clips — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">YOUR CLIP LIBRARY</div><h1>My Clips</h1><p class="muted">Candidate, approved and rejected clips from all your jobs.</p></div>
+  <a class="btn primary" href="/clips/new">＋ Create new clip</a>
+</div>
+
+<form class="filter-bar" method="get" action="/clips">
+  <input type="search" name="q" placeholder="Search clips by title…" value="{{ q or '' }}">
+  <button class="btn ghost" type="submit">Search</button>
+  {% if q %}<a class="btn ghost" href="/clips">Clear</a>{% endif %}
+</form>
+
+{% if jobs %}
+<section class="panel">
+  <div class="panel-head"><h2>Jobs</h2></div>
+  <table class="table">
+    <thead><tr><th>Job</th><th>Status</th><th>Progress</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr>
+        <td>{{ job.title or ('Job #' ~ job.id) }}</td>
+        <td><span class="badge badge-{{ job.status }}">{{ job.status }}</span></td>
+        <td><div class="progress"><div class="progress-fill" style="width: {{ job.progress }}%"></div></div><small>{{ job.progress }}%</small></td>
+        <td>{{ job.created_at.strftime('%d %b %Y, %H:%M') if job.created_at else '' }}</td>
+        <td><a class="btn ghost btn-sm" href="/clips/jobs/{{ job.id }}">View job</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-head"><h2>Clips</h2><span class="muted">{{ clips | length }} clip{{ '' if clips | length == 1 else 's' }}</span></div>
+  {% if clips %}
+  <table class="table">
+    <thead><tr><th>Title</th><th>Status</th><th>Job</th><th>Duration</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+      {% for clip in clips %}
+      {% set clip_job = jobs | selectattr('id', 'equalto', clip.job_id) | first %}
+      <tr>
+        <td>{{ clip.title }}</td>
+        <td><span class="badge badge-{{ clip.status }}">{{ clip.status }}</span></td>
+        <td>{% if clip_job %}<span class="badge badge-{{ clip_job.status }}">{{ clip_job.status }}</span>{% else %}—{% endif %}</td>
+        <td>{{ clip.duration_s | round(1) }}s</td>
+        <td>{{ clip.created_at.strftime('%d %b %Y') if clip.created_at else '' }}</td>
+        <td><a class="btn ghost btn-sm" href="/clips/{{ clip.id }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">{% if q %}No clips match “{{ q }}”.{% else %}No clips yet. Create your first clip to see candidates here.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

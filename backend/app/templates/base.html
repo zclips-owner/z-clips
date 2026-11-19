@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Z CLIPS{% endblock %}</title>
+  {% block extra_head %}{% endblock %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <header class="topbar">
+    <a class="brand" href="{% if current_user %}/dashboard{% else %}/{% endif %}"><span class="brand-mark">Z</span><span>Z CLIPS</span></a>
+    {% if current_user %}
+    <div class="topbar-centre">
+      <button type="button" class="hamburger" id="sidebar-toggle" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false">☰</button>
+      <form class="topbar-search" method="get" action="/search" role="search">
+        <input type="search" name="q" placeholder="Search your clips…" value="{{ q if q is defined else '' }}" aria-label="Search clips">
+        <button type="submit" aria-label="Search">⌕</button>
+      </form>
+    </div>
+    <a class="profile-link" href="{% if is_owner %}/owner{% else %}/settings{% endif %}">
+      <span class="avatar">{{ (current_user.display_name or current_user.username)[0] | upper }}</span>
+      <span class="profile-name">{{ current_user.display_name or current_user.username }}</span>
+    </a>
+    {% else %}
+    <nav><a href="/plans">Plans</a><a href="/login">Login</a><a class="nav-cta" href="/signup">Get Started</a></nav>
+    {% endif %}
+  </header>
+
+  {% if current_user %}
+  <div class="sidebar-overlay" id="sidebar-overlay" hidden></div>
+  <aside class="sidebar" id="sidebar" aria-hidden="true">
+    <div class="sidebar-head">
+      <span class="brand"><span class="brand-mark">Z</span><span>Z CLIPS</span></span>
+      <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Close menu">×</button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/clips/new">Create New Clip</a>
+      <a href="/clips">My Clips</a>
+      <a href="/downloads">Downloads</a>
+      <a href="/subscription">Subscription</a>
+      <a href="/plans">View Plans</a>
+      <a href="/yt">YT Monitoring</a>
+      <a href="/support">Help &amp; Support</a>
+      <a href="/settings">Settings</a>
+      {% if is_owner %}
+      <div class="sidebar-sep">Owner</div>
+      <a href="/owner">Owner Dashboard</a>
+      <a href="/owner/payments">Payment Requests</a>
+      <a href="/owner/users">User Management</a>
+      <a href="/owner/support">Support Inbox</a>
+      <a href="/owner/promotion">Promotion</a>
+      <a href="/owner/system">System &amp; Models</a>
+      <a href="/owner/settings">Global Settings</a>
+      {% endif %}
+      <a href="/logout">Logout</a>
+    </nav>
+  </aside>
+  {% endif %}
+
+  <main class="shell">
+    {% if message %}<div class="alert-ok" role="status">{{ message }}</div>{% endif %}
+    {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer>© Z CLIPS · Create · Edit · Share</footer>
+  <script>
+    (function () {
+      var toggle = document.getElementById('sidebar-toggle');
+      var sidebar = document.getElementById('sidebar');
+      var overlay = document.getElementById('sidebar-overlay');
+      var closeBtn = document.getElementById('sidebar-close');
+      if (!toggle || !sidebar) return;
+      function openSidebar() {
+        sidebar.classList.add('open');
+        sidebar.setAttribute('aria-hidden', 'false');
+        toggle.setAttribute('aria-expanded', 'true');
+        if (overlay) overlay.hidden = false;
+      }
+      function closeSidebar() {
+        sidebar.classList.remove('open');
+        sidebar.setAttribute('aria-hidden', 'true');
+        toggle.setAttribute('aria-expanded', 'false');
+        if (overlay) overlay.hidden = true;
+      }
+      toggle.addEventListener('click', function () {
+        if (sidebar.classList.contains('open')) { closeSidebar(); } else { openSidebar(); }
+      });
+      if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+      if (overlay) overlay.addEventListener('click', closeSidebar);
+    })();
+  </script>
+</body>
+</html>

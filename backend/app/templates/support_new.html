@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}New Support Request — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">HELP &amp; SUPPORT</div><h1>New request</h1><p class="muted">Tell us what you need help with. The owner will reply in this thread.</p></div>
+  <a class="btn ghost" href="/support">← Support</a>
+</div>
+
+<form class="panel form-card" method="post" action="/support/new">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label for="subject">Subject</label>
+  <input id="subject" name="subject" required maxlength="200" placeholder="e.g. Plan change request, or a clip failed">
+  <label for="message">Message</label>
+  <textarea id="message" name="message" required rows="6" placeholder="Describe your issue or request in detail…"></textarea>
+  <button class="btn primary full" type="submit">Send request</button>
+</form>
+{% endblock %}

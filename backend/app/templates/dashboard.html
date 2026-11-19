@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Z CLIPS{% endblock %}
+{% block content %}
+<div class="dash-head">
+  <div>
+    <div class="eyebrow">YOUR WORKSPACE</div>
+    <h1>Welcome, {{ user.display_name or user.username }}.</h1>
+    <p class="muted">Your clips, your creative workflow.</p>
+  </div>
+  <a class="btn primary" href="/clips/new">＋ Create new clip</a>
+</div>
+
+{% if promo_active and promotion %}
+<div class="banner banner-promo">
+  <div>
+    <strong>Promotion: {{ promotion.name }}</strong>
+    <span>Pro is {{ promotion.discount_pct }}% off — Rs. {{ "{:,}".format(promotion.promo_price_pkr) }} instead of Rs. {{ "{:,}".format(promotion.normal_price_pkr) }}.</span>
+    {% if promotion.seats_remaining is defined %}<span>{{ promotion.seats_remaining }} of {{ promotion.max_seats }} seats left.</span>{% endif %}
+    {% if promotion.ends_at %}<span>Ends {{ promotion.ends_at.strftime('%d %b %Y') }}.</span>{% endif %}
+  </div>
+  <a class="btn primary" href="/pay?plan=pro">Get Pro now</a>
+</div>
+{% endif %}
+
+{% if not promo_active %}
+<div class="banner banner-more">
+  <div>
+    <strong>Need More Clips?</strong>
+    <span>You have {{ remaining if remaining is not none else credits }} clip{{ '' if (remaining if remaining is not none else credits) == 1 else 's' }} left on the {{ plan_name }} plan. Upgrade for more clips, manual editing and 4K export.</span>
+  </div>
+  <a class="btn ghost" href="/plans">View plans</a>
+</div>
+{% endif %}
+
+<section class="stats-grid stats-grid-4">
+  <article class="panel stat"><span>Available clips</span><strong>{{ remaining if remaining is not none else '—' }}{% if entitlements.monthly_clips %} / {{ entitlements.monthly_clips }}{% endif %}</strong><small>{{ credits }} credit{{ '' if credits == 1 else 's' }} in your balance</small></article>
+  <article class="panel stat"><span>Plan type</span><strong>{{ plan_name }}</strong><small>{{ entitlements.name }}</small></article>
+  <article class="panel stat"><span>Subscription end date</span><strong>{% if subscription and subscription.ends_at %}{{ subscription.ends_at.strftime('%d %b %Y') }}{% elif user.plan_ends_at %}{{ user.plan_ends_at.strftime('%d %b %Y') }}{% else %}—{% endif %}</strong><small>{% if subscription %}Status: {{ subscription.status }}{% else %}No active subscription{% endif %}</small></article>
+  <article class="panel stat"><span>YT Monitoring</span><strong>{% if yt_status == 'available' %}Available{% elif yt_status == 'not_configured' %}Not configured{% else %}Locked{% endif %}</strong><small>{% if yt_status == 'available' %}Pro feature is ready{% elif yt_status == 'not_configured' %}YouTube API key not configured{% else %}Upgrade to Pro to unlock{% endif %}</small></article>
+</section>
+
+<section class="quick-actions">
+  <a class="btn primary" href="/clips/new">Create Clip</a>
+  <a class="btn ghost" href="/clips">Edit Video</a>
+  <a class="btn ghost" href="/downloads">Share</a>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Recent activity</h2><a class="link" href="/clips">My Clips →</a></div>
+  {% if recent_activity %}
+  <ul class="activity-list">
+    {% for a in recent_activity %}
+    <li><span class="activity-kind">{{ a.kind }}</span><span class="activity-detail">{{ a.detail }}</span><time>{{ a.created_at.strftime('%d %b %Y, %H:%M') if a.created_at else '' }}</time></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No activity yet. Create your first clip to get started.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Your clips at a glance</h2><a class="link" href="/clips">View all →</a></div>
+  <div class="stats-grid stats-grid-3">
+    <article class="stat-inline"><span>Total clips</span><strong>{{ clip_counts.total }}</strong></article>
+    <article class="stat-inline"><span>Approved</span><strong>{{ clip_counts.approved }}</strong></article>
+    <article class="stat-inline"><span>Candidates</span><strong>{{ clip_counts.candidates }}</strong></article>
+  </div>
+  {% if clip_counts.total == 0 %}
+  <p class="empty">You have no clips yet. Upload a video and let Z CLIPS find the best moments.</p>
+  {% endif %}
+</section>
+{% endblock %}

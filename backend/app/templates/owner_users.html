@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}User Management — Owner — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">OWNER · USERS</div><h1>User Management</h1><p class="muted">Search users by username or email.</p></div>
+</div>
+
+{% if stats %}
+<section class="stats-grid stats-grid-4">
+  <article class="panel stat"><span>Total users</span><strong>{{ stats.users }}</strong><small>Registered accounts</small></article>
+  <article class="panel stat"><span>Active</span><strong>{{ stats.active }}</strong><small>Not suspended</small></article>
+  <article class="panel stat"><span>Suspended</span><strong>{{ stats.suspended }}</strong><small>Suspended accounts</small></article>
+  <article class="panel stat"><span>Active subscriptions</span><strong>{{ stats.active_subscriptions }}</strong><small>Currently active plans</small></article>
+</section>
+{% endif %}
+
+<form class="filter-bar" method="get" action="/owner/users">
+  <input type="search" name="q" placeholder="Search by username or email…" value="{{ q or '' }}">
+  <button class="btn ghost" type="submit">Search</button>
+  {% if q %}<a class="btn ghost" href="/owner/users">Clear</a>{% endif %}
+</form>
+
+<section class="panel">
+  {% if users %}
+  <table class="table">
+    <thead><tr><th>Username</th><th>Email</th><th>Plan</th><th>Credits</th><th>Status</th><th>Joined</th><th></th></tr></thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.username }}{% if u.complimentary_premium %} <span class="badge badge-promo">Complimentary</span>{% endif %}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.plan | title }}</td>
+        <td>{{ u.credits }}</td>
+        <td>{% if u.is_suspended %}<span class="badge badge-failed">suspended</span>{% elif not u.is_active %}<span class="badge badge-rejected">inactive</span>{% else %}<span class="badge badge-done">active</span>{% endif %}</td>
+        <td>{{ u.created_at.strftime('%d %b %Y') if u.created_at else '' }}</td>
+        <td><a class="btn ghost btn-sm" href="/owner/users/{{ u.id }}">Manage</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">{% if q %}No users match “{{ q }}”.{% else %}No users found.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

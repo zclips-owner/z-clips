@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}System &amp; Models — Owner — Z CLIPS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">OWNER · SYSTEM</div><h1>System &amp; Models</h1><p class="muted">AI usage, server, storage and worker monitoring, plus the model manager.</p></div>
+</div>
+
+<section class="stats-grid stats-grid-4">
+  <article class="panel stat"><span>Worker status</span><strong>{{ worker.status }}</strong><small>{{ worker.queued }} queued · {{ worker.processing }} processing</small></article>
+  <article class="panel stat"><span>Jobs failed</span><strong>{{ worker.failed }}</strong><small>Currently failed</small></article>
+  <article class="panel stat"><span>Jobs done (24h)</span><strong>{{ worker.done_last_24h }}</strong><small>Completed in the last 24 hours</small></article>
+  <article class="panel stat"><span>ffmpeg</span><strong>{% if ffmpeg_available %}Available{% else %}Not available{% endif %}</strong><small>{% if ffmpeg_available %}Video processing is ready{% else %}Video rendering cannot run without ffmpeg{% endif %}</small></article>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Storage</h2></div>
+  <dl class="details">
+    <div><dt>Storage directory</dt><dd><code>{{ storage.storage_dir }}</code></dd></div>
+    <div><dt>Uploads</dt><dd>{{ (storage.uploads_bytes / 1048576) | round(1) }} MB</dd></div>
+    <div><dt>Clips</dt><dd>{{ (storage.clips_bytes / 1048576) | round(1) }} MB</dd></div>
+    <div><dt>Payments</dt><dd>{{ (storage.payments_bytes / 1048576) | round(1) }} MB</dd></div>
+    <div><dt>Total used</dt><dd>{{ (storage.total_bytes / 1048576) | round(1) }} MB</dd></div>
+    <div><dt>Disk free</dt><dd>{{ (storage.disk_free_bytes / 1073741824) | round(2) }} GB free of {{ (storage.disk_total_bytes / 1073741824) | round(2) }} GB</dd></div>
+  </dl>
+  <p class="muted">Database: {{ db_url_scheme }}</p>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>AI models</h2></div>
+  {% if models %}
+  <table class="table">
+    <thead><tr><th>Model</th><th>Version</th><th>Size</th><th>License</th><th>Status</th><th>Installed</th><th></th></tr></thead>
+    <tbody>
+      {% for m in models %}
+      <tr>
+        <td>{{ m.name }}{% if m.error %}<br><small class="text-danger">{{ m.error }}</small>{% endif %}{% if m.path %}<br><small class="muted">{{ m.path }}</small>{% endif %}</td>
+        <td>{{ m.version or '—' }}</td>
+        <td>{{ m.size_mb }} MB</td>
+        <td>{{ m.license or '—' }}</td>
+        <td><span class="badge badge-{{ m.status }}">{{ m.status }}</span></td>
+        <td>{{ m.installed_at.strftime('%d %b %Y') if m.installed_at else '—' }}</td>
+        <td>
+          {% if m.status != 'installed' and m.status != 'installing' %}
+          <form method="post" action="/owner/system/models/{{ m.name }}/install">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="btn primary btn-sm" type="submit">Install</button>
+          </form>
+          {% elif m.status == 'installing' %}
+          <span class="muted">Installing…</span>
+          {% else %}
+          <span class="muted">Installed</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No models are registered yet.</p>
+  {% endif %}
+  <p class="muted">Installing a model is opt-in and runs in the background. Jobs that need a missing model stay in “needs_model” until it is installed.</p>
+</section>
+{% endblock %}
