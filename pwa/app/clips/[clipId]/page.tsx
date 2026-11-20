@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, apiFetch, isUnauthenticated } from "@/lib/api";
 import { AppShell } from "@/components/app-shell";
 import { ErrorState, LoadingState } from "../_components/clip-ui";
@@ -31,6 +31,29 @@ interface MeResponse {
   user: UserSummary;
   entitlements: Entitlements;
 }
+
+/** Rectangle shown when the facecam X/Y/W/H fields are empty. */
+const DEFAULT_FACECAM = { x: 0.68, y: 0.05, w: 0.28, h: 0.28 };
+
+const clamp = (n: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, n));
+
+/** Parse a 0–1 fraction field; fall back when the field is empty/invalid. */
+const parseCoord = (value: string, fallback: number) => {
+  if (value.trim() === "") return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const round3 = (n: number) => String(Math.round(n * 1000) / 1000);
+
+type DragState = {
+  mode: "move" | "resize";
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  startRect: typeof DEFAULT_FACECAM;
+};
 
 export default function ClipEditorPage() {
   const params = useParams();
@@ -111,6 +134,70 @@ export default function ClipEditorPage() {
 
   const showManualCoords =
     facecamMode === "manual" && !!data?.entitlements.advanced_positioning;
+
+  // --- Draggable facecam rectangle (manual mode) -------------------------
+  // The rectangle is derived from the X/Y/W/H fields (defaults when empty),
+  // so typing numbers moves it and dragging it writes back into the fields.
+  const previewRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<DragState | null>(null);
+
+  const facecamRect = {
+    w: clamp(parseCoord(facecamW, DEFAULT_FACECAM.w), 0.05, 1),
+    h: clamp(parseCoord(facecamH, DEFAULT_FACECAM.h), 0.05, 1),
+    x: 0,
+    y: 0
+  };
+  facecamRect.x = clamp(parseCoord(facecamX, DEFAULT_FACECAM.x), 0, 1 - facecamRect.w);
+  facecamRect.y = clamp(parseCoord(facecamY, DEFAULT_FACECAM.y), 0, 1 - facecamRect.h);
+
+  const applyRect = (r: typeof DEFAULT_FACECAM) => {
+    setFacecamX(round3(r.x));
+    setFacecamY(round3(r.y));
+    setFacecamW(round3(r.w));
+    setFacecamH(round3(r.h));
+  };
+
+  const startDrag = (e: React.PointerEvent, mode: "move" | "resize") => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = {
+      mode,
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startRect: { ...facecamRect }
+    };
+  };
+
+  const onDragMove = (e: React.PointerEvent) => {
+    const drag = dragRef.current;
+    const box = previewRef.current;
+    if (!drag || drag.pointerId !== e.pointerId || !box) return;
+    const bounds = box.getBoundingClientRect();
+    if (bounds.width === 0 || bounds.height === 0) return;
+    const dx = (e.clientX - drag.startClientX) / bounds.width;
+    const dy = (e.clientY - drag.startClientY) / bounds.height;
+    const s = drag.startRect;
+    if (drag.mode === "move") {
+      applyRect({
+        ...s,
+        x: clamp(s.x + dx, 0, 1 - s.w),
+        y: clamp(s.y + dy, 0, 1 - s.h)
+      });
+    } else {
+      applyRect({
+        ...s,
+        w: clamp(s.w + dx, 0.05, 1 - s.x),
+        h: clamp(s.h + dy, 0.05, 1 - s.y)
+      });
+    }
+  };
+
+  const endDrag = (e: React.PointerEvent) => {
+    if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null;
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -199,18 +286,59 @@ export default function ClipEditorPage() {
               </span>
             </header>
 
-            {clip.preview_url ? (
-              <video
-                src={clip.preview_url}
-                controls
-                playsInline
-                preload="metadata"
-                className="w-full rounded-2xl"
-              />
-            ) : (
-              <div className="panel grid aspect-video place-items-center p-6 text-sm text-purple-300">
-                No preview available for this clip.
-              </div>
+            <div ref={previewRef} className="relative w-full">
+              {clip.preview_url ? (
+                <video
+                  src={clip.preview_url}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="block w-full rounded-2xl"
+                />
+              ) : (
+                <div className="panel grid aspect-video place-items-center p-6 text-sm text-purple-300">
+                  No preview available for this clip.
+                </div>
+              )}
+
+              {showManualCoords && canEdit && (
+                <div
+                  role="button"
+                  aria-label="Facecam position — drag to move, drag the corner handle to resize"
+                  className="absolute cursor-move touch-none rounded-lg border-2 border-dashed border-orange-400 bg-orange-500/20 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"
+                  style={{
+                    left: `${facecamRect.x * 100}%`,
+                    top: `${facecamRect.y * 100}%`,
+                    width: `${facecamRect.w * 100}%`,
+                    height: `${facecamRect.h * 100}%`,
+                    touchAction: "none"
+                  }}
+                  onPointerDown={(e) => startDrag(e, "move")}
+                  onPointerMove={onDragMove}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
+                >
+                  <span className="pointer-events-none absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300">
+                    Facecam
+                  </span>
+                  <div
+                    aria-label="Resize facecam"
+                    className="absolute -bottom-2 -right-2 h-5 w-5 cursor-nwse-resize touch-none rounded-full border-2 border-white bg-orange-500"
+                    style={{ touchAction: "none" }}
+                    onPointerDown={(e) => startDrag(e, "resize")}
+                    onPointerMove={onDragMove}
+                    onPointerUp={endDrag}
+                    onPointerCancel={endDrag}
+                  />
+                </div>
+              )}
+            </div>
+            {showManualCoords && canEdit && (
+              <p className="muted -mt-2 text-xs">
+                Drag the orange box on the preview to move the facecam, or drag
+                its corner handle to resize it. The X / Y / Width / Height
+                fields below update as you drag.
+              </p>
             )}
 
             {!canEdit && (

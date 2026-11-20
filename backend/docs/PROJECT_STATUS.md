@@ -35,6 +35,19 @@ production-ready — see "Known limitations" below.
 - **YouTube monitoring (Pro only):** live-status checks via YouTube Data
   API v3; honest `not_configured` state without an API key; authorised-
   source recording only — no downloading of public streams.
+- **Live-stream clip extraction (Pro only, authorised channels):**
+  `app/services/live_capture.py` — best-effort live capture (yt-dlp
+  resolve + ffmpeg stream-copy segments, 10 min / 480p by default; each
+  finished segment becomes a queued ClipJob for the existing worker)
+  plus a VOD fallback (stream ended → VOD queued as a `url` job through
+  the existing `download_source_url` path). Hooked into both live-check
+  endpoints; `GET /api/v1/live/segments/{source_id}/moments` ranks a
+  finished segment's moments with the pipeline's own scorer. Measured
+  locally 2026-11-20: live capture works from this VM (NASA ISS live
+  stream), ffmpeg record ~68 MB peak RSS; full pipeline run on a 30s
+  segment peaked at ~342 MB (ffmpeg render step ~229–342 MB) — above
+  the 256 MB free-tier container, so the worker needs a bigger host or
+  a render memory limit before live capture is safe in production.
 - **Support:** private threads per customer + owner only; customer
   replies reopen closed threads.
 - **Owner admin:** stats, user management (status / plan / credits /

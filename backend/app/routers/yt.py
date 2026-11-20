@@ -112,6 +112,7 @@ def check_channel(
     channel = _own_channel(db, channel_id, user)
     result = check_live_status(channel)
     was_live = channel.is_live
+    prev_live_video_id = channel.live_video_id or ""
     channel.last_checked_at = utcnow()
     channel.last_status = result["status"]
     channel.is_live = result["is_live"]
@@ -119,6 +120,15 @@ def check_channel(
     channel.live_title = result["live_title"]
     if result["status"] == "live" and not was_live:
         log_activity(db, user.id, "yt_live", f"Channel went live: {channel.live_title or channel.channel_url}")
+    # LIVE-STREAM CLIP EXTRACTION hook (services/live_capture.py): when an
+    # authorised channel is live this starts background segment capture;
+    # when a stream just ended it queues the VOD for clipping. The hook
+    # never raises and never changes the check result above.
+    from ..services.live_capture import on_live_status_change
+
+    on_live_status_change(db, channel, result,
+                          prev_live_video_id=prev_live_video_id,
+                          was_live=was_live)
     db.commit()
     if not result["configured"]:
         # No API key: do not invent a status; show the honest message.

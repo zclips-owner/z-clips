@@ -240,6 +240,77 @@ def test_process_job_on_real_video_reaches_done_with_qc_passed_clip(
     assert "Transcription model not installed" in job.log
 
 
+def test_process_url_job_downloads_source_then_reaches_done(
+        client, tmp_db, tmp_path, patched_pipeline_session, monkeypatch):
+    """A URL-source job (empty stored_path) must download first, then run
+    the normal pipeline to a QC-passed clip. The download itself is faked
+    (copies a local test video); the wiring is what is under test."""
+    import shutil
+    from pathlib import Path
+
+    import app.pipeline.run as run
+
+    alice = make_user(tmp_db, username="alice", password=PASSWORD)
+    login_as(client, tmp_db, "alice", PASSWORD)
+    video = tmp_path / "test.mp4"
+    make_test_video(video, duration=12)
+
+    def fake_download(url, dest_dir):
+        assert url == YOUTUBE_URL
+        out_dir = Path(dest_dir) / "dl_fake"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        dest = out_dir / "source.mp4"
+        shutil.copyfile(video, dest)
+        return dest
+
+    monkeypatch.setattr(run, "download_source_url", fake_download)
+    job_id = _job_id_from(create_url_job(client))
+    db = _db(tmp_db)
+    try:
+        job = db.get(ClipJob, job_id)
+        source = db.get(SourceVideo, job.source_id)
+        assert source.source_type == "url"
+        assert source.stored_path == ""
+    finally:
+        db.close()
+
+    run.process_job(job_id)
+    job = _job(tmp_db, job_id)
+    assert job.status == "done", f"job failed: {job.error} | log: {job.log[-500:]}"
+    assert "Download complete" in job.log
+    db = _db(tmp_db)
+    try:
+        source = db.get(SourceVideo, db.get(ClipJob, job_id).source_id)
+        assert source.stored_path
+        assert Path(source.stored_path).is_file()
+        assert source.file_size > 0
+    finally:
+        db.close()
+    clips = _clips_for_job(tmp_db, job_id)
+    assert any(c.qc_passed for c in clips)
+
+
+def test_process_url_job_download_failure_fails_honestly(
+        client, tmp_db, patched_pipeline_session, monkeypatch):
+    """When the URL cannot be downloaded the job fails with a clear
+    message and no clip is invented."""
+    import app.pipeline.run as run
+    from app.pipeline.download import DownloadError
+
+    def failing_download(url, dest_dir):
+        raise DownloadError("Could not download video from this URL — video unavailable")
+
+    monkeypatch.setattr(run, "download_source_url", failing_download)
+    make_user(tmp_db, username="alice", password=PASSWORD)
+    login_as(client, tmp_db, "alice", PASSWORD)
+    job_id = _job_id_from(create_url_job(client))
+    run.process_job(job_id)
+    job = _job(tmp_db, job_id)
+    assert job.status == "failed"
+    assert "Could not download video from this URL" in job.error
+    assert _clips_for_job(tmp_db, job_id) == []
+
+
 def test_approve_clip_then_download_increments_counter(
         client, tmp_db, tmp_path, patched_pipeline_session):
     from app.pipeline.run import process_job

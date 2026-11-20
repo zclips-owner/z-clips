@@ -8,6 +8,7 @@ gating for YouTube, and owner-only endpoints.
 """
 import pytest
 
+import app.routers.api as api_router
 from app.config import STORAGE_DIR
 from app.models import Clip, ClipJob, PaymentRequest, SourceVideo, User
 from conftest import login_as, make_owner, make_user
@@ -240,7 +241,10 @@ def test_plans_no_auth(client, tmp_db):
     assert body["promotion"]["promo_price_pkr"] == 5250
 
 
-def test_pay_info_amounts_server_side(client, tmp_db):
+def test_pay_info_amounts_server_side(client, tmp_db, monkeypatch, tmp_path):
+    # Point the QR at a temp path with no file: this test asserts the
+    # "no QR provided" state and must not depend on the real shipped QR.
+    monkeypatch.setattr(api_router, "NAYAPAY_QR_PATH", str(tmp_path / "nayapay-qr.png"))
     make_user(tmp_db, username="alice", password=PASSWORD)
     _login_api_as(client, "alice", PASSWORD)
     resp = client.get("/api/v1/pay")
@@ -397,7 +401,10 @@ def test_owner_reject_payment(client, tmp_db):
     assert _db_get(tmp_db, User, alice).plan == "free"
 
 
-def test_pay_qr_missing_is_404_json(client, tmp_db):
+def test_pay_qr_missing_is_404_json(client, tmp_db, monkeypatch, tmp_path):
+    # Point the QR at a temp path with no file: this test asserts the
+    # "no QR provided" state and must not depend on the real shipped QR.
+    monkeypatch.setattr(api_router, "NAYAPAY_QR_PATH", str(tmp_path / "nayapay-qr.png"))
     make_user(tmp_db, username="alice", password=PASSWORD)
     _login_api_as(client, "alice", PASSWORD)
     resp = client.get("/api/v1/pay/qr")

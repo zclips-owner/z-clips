@@ -1358,6 +1358,7 @@ def api_yt_check(
     channel = _own_channel(db, channel_id, user)
     result = check_live_status(channel)
     was_live = channel.is_live
+    prev_live_video_id = channel.live_video_id or ""
     channel.last_checked_at = _utcnow()
     channel.last_status = result["status"]
     channel.is_live = result["is_live"]
@@ -1365,6 +1366,15 @@ def api_yt_check(
     channel.live_title = result["live_title"]
     if result["status"] == "live" and not was_live:
         log_activity(db, user.id, "yt_live", f"Channel went live: {channel.live_title or channel.channel_url}")
+    # LIVE-STREAM CLIP EXTRACTION hook (services/live_capture.py): when an
+    # authorised channel is live this starts background segment capture;
+    # when a stream just ended it queues the VOD for clipping. The hook
+    # never raises and never changes the check result above.
+    from ..services.live_capture import on_live_status_change
+
+    on_live_status_change(db, channel, result,
+                          prev_live_video_id=prev_live_video_id,
+                          was_live=was_live)
     db.commit()
     if not result["configured"] or result["status"] == "error":
         # Honest failure: never invent a live status when the API key is
@@ -1406,6 +1416,48 @@ async def api_yt_authorize(
     channel.authorized_source_note = note
     db.commit()
     return {"channel": yt_channel_ser(channel)}
+
+
+# --------------------------------------------------------------------------
+# Live segments: moment scoring (the pipeline's own scorer, no new "AI")
+# --------------------------------------------------------------------------
+@router.get("/live/segments/{source_id}/moments")
+def api_live_segment_moments(
+    source_id: int,
+    user: User = Depends(api_require_pro),
+    db: Session = Depends(get_db),
+):
+    """Rank the clip-worthy moments in a finished live segment (or any
+    finished source file) using the real pipeline scorer from
+    ``pipeline/analyze.py`` — scene cuts + per-second audio energy.
+
+    This creates no clips and no job: it previews what the pipeline
+    would clip, so the owner can see the ranked candidates for a
+    captured segment before (or instead of) queueing a job. Scores are
+    the pipeline's own scores, with no transcript available the speech
+    component is 0. Runs synchronously; meant for finished segments
+    (<=10 min), not whole multi-hour VODs.
+    """
+    from ..services.live_capture import score_segment_file
+
+    source = db.get(SourceVideo, source_id)
+    if source is None:
+        raise HTTPException(status_code=404, detail="Source not found.")
+    if source.user_id != user.id and not user.is_owner:
+        raise HTTPException(status_code=403, detail="You can only view your own sources.")
+    if not source.stored_path or not Path(source.stored_path).is_file():
+        return _err(
+            "This source has no finished file on disk yet — the VOD has "
+            "not been downloaded, or the live segment is still recording.",
+            409,
+        )
+    try:
+        scored = score_segment_file(source.stored_path)
+    except FileNotFoundError:
+        return _err("Source file is missing.", 404)
+    except RuntimeError as exc:
+        return _err(str(exc), 422)
+    return {"source": source_ser(source), **scored}
 
 
 # --------------------------------------------------------------------------

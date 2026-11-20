@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+import app.routers.owner as owner_router
 from app.config import NAYAPAY_QR_PATH, STORAGE_DIR
 from app.models import Promotion, User
 from app.services import billing
@@ -194,7 +195,11 @@ def test_owner_promotion_clamps_max_seats_below_reserved_plus_used(client, tmp_d
         db.close()
 
 
-def test_owner_settings_qr_upload_accepts_image(client, tmp_db):
+def test_owner_settings_qr_upload_accepts_image(client, tmp_db, monkeypatch, tmp_path):
+    # Point the QR at a temp path: the upload must never overwrite the
+    # real shipped QR file (storage/nayapay-qr.png).
+    qr = tmp_path / "nayapay-qr.png"
+    monkeypatch.setattr(owner_router, "NAYAPAY_QR_PATH", str(qr))
     _login_owner(client, tmp_db)
     token = get_csrf(client, "/owner/settings")
     resp = client.post(
@@ -205,8 +210,6 @@ def test_owner_settings_qr_upload_accepts_image(client, tmp_db):
     )
     assert resp.status_code == 303
     assert resp.headers["location"] == "/owner/settings"
-    from pathlib import Path
-    qr = Path(NAYAPAY_QR_PATH)
     assert qr.is_file()
     assert qr.read_bytes() == PNG_1X1
 

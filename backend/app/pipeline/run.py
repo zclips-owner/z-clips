@@ -23,7 +23,9 @@ from datetime import datetime, timezone
 from ..activity import log_activity
 from ..database import SessionLocal
 from ..models import Clip, ClipJob, SourceVideo
+from ..storage import user_upload_dir
 from .analyze import TRANSCRIPT_NOT_INSTALLED_MSG, analyze_source, load_transcript_for_job
+from .download import download_source_url
 from .qc import run_qc
 from .render import render_clip
 
@@ -116,6 +118,28 @@ def process_job(job_id: int) -> None:
             source = db.get(SourceVideo, job.source_id)
             if source is None:
                 raise RuntimeError(f"Source video #{job.source_id} no longer exists.")
+
+            # --- fetch URL sources --------------------------------------
+            # A URL-source job is created with an empty stored_path; the
+            # video has to be downloaded before analysis can probe it.
+            # (An already-downloaded file is reused, so a retry or a
+            # re-render never downloads the same URL twice.)
+            if source.source_type == "url" and (
+                not source.stored_path or not os.path.isfile(source.stored_path)
+            ):
+                if not source.source_url:
+                    raise RuntimeError(
+                        "This clip job has a source URL but no video file to download from."
+                    )
+                _set_status(db, job, "analyzing", 5)
+                _log(db, job, f"Downloading source video from {source.source_url}.")
+                downloaded = download_source_url(source.source_url, user_upload_dir(job.user_id))
+                source.stored_path = str(downloaded)
+                source.file_size = downloaded.stat().st_size
+                source.original_filename = downloaded.name
+                db.commit()
+                _log(db, job, f"Download complete: {downloaded.name} "
+                              f"({source.file_size / 1024 / 1024:.1f} MB).")
 
             # --- analyzing -------------------------------------------------
             # A re-render job from the clip editor carries an explicit trim
