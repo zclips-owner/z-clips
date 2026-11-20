@@ -148,6 +148,34 @@ export interface DirectUploadResponse {
 export async function directUploadClip(
   form: FormData
 ): Promise<DirectUploadResponse> {
+  // The free backend sleeps after ~30 min idle. The first request wakes it,
+  // but the direct upload can fail while it is still starting up. Retry the
+  // whole two-step flow once after a short wait, with a FRESH token each
+  // time (tokens are single-use, so a consumed/expired one cannot be reused).
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 8000));
+    }
+    try {
+      return await directUploadClipOnce(form);
+    } catch (err) {
+      lastError = err;
+      const isNetworkError =
+        err instanceof ApiError && err.status === 502;
+      if (!isNetworkError || attempt === 1) {
+        throw err;
+      }
+      // Network error on the first attempt: the server was probably waking
+      // up. Fall through to the retry.
+    }
+  }
+  throw lastError;
+}
+
+async function directUploadClipOnce(
+  form: FormData
+): Promise<DirectUploadResponse> {
   const tokenRes = await apiFetch<UploadTokenResponse>("/clips/upload-token", {
     method: "POST",
     body: {}
