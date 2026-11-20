@@ -37,6 +37,7 @@ from ..config import (
 )
 from ..database import get_db
 from ..deps import check_rate_limit, csrf_token_for, current_user, validate_csrf
+from ..editor_fields import EDITOR_OPTION_LISTS, editor_fields_for_job, parse_editor_fields
 from ..models import (
     Activity,
     AppSetting,
@@ -346,6 +347,7 @@ def job_ser(j: ClipJob) -> dict:
         "attempts": j.attempts,
         "created_at": _iso(j.created_at),
         "updated_at": _iso(j.updated_at),
+        **editor_fields_for_job(j),
     }
 
 
@@ -743,6 +745,15 @@ async def api_clip_create(
         return _err("Title must be 200 characters or fewer.")
     if not caption_style_allowed(user, caption_style):
         return _err("That caption style is not available on your plan — please upgrade to use it.")
+    editor_fields, editor_error = parse_editor_fields(
+        {k: form.get(k) for k in (
+            "aspect_ratio", "layout", "caption_size", "caption_position",
+            "caption_bg", "sticker_text", "post_author", "post_text",
+        )},
+        entitlements_for(user)["manual_editing"],
+    )
+    if editor_error:
+        return _err(editor_error)
     try:
         export_height_int = int(export_height)
     except (TypeError, ValueError):
@@ -751,8 +762,8 @@ async def api_clip_create(
         return _err("That export height is not available on your plan — please upgrade to use it.")
     if facecam_mode not in FACE_CAM_MODES:
         return _err("Please choose a valid facecam mode.")
-    if facecam_mode == "manual" and not entitlements_for(user)["advanced_positioning"]:
-        return _err("Manual facecam positioning requires the Pro plan.")
+    if facecam_mode == "manual" and not entitlements_for(user)["manual_editing"]:
+        return _err("Manual facecam positioning requires the Lite or Pro plan.")
     if not has_file and not source_url:
         return _err("Upload a video file or paste a source URL.")
     if has_file and not is_allowed_video(video.filename or ""):
@@ -816,6 +827,7 @@ async def api_clip_create(
         caption_style=caption_style,
         export_height=export_height_int,
         facecam_mode=facecam_mode,
+        **editor_fields,
     )
     db.add(job)
     db.flush()
@@ -864,6 +876,7 @@ def api_clip_detail(
         "caption_styles": _caption_style_options(user),
         "export_heights": export_heights_allowed(user),
         "can_edit": can_edit,
+        **EDITOR_OPTION_LISTS,
     }
 
 
@@ -893,6 +906,9 @@ async def api_clip_edit(
     caption_style = str(data.get("caption_style") or "simple").strip()
     if not caption_style_allowed(user, caption_style):
         return _err("That caption style is not available on your plan — please upgrade to use it.")
+    editor_fields, editor_error = parse_editor_fields(data, ent["manual_editing"])
+    if editor_error:
+        return _err(editor_error)
     export_height_int = _as_int(data.get("export_height"), -1)
     if export_height_int is None or export_height_int < 0:
         return _err("Please choose a valid export height.")
@@ -901,8 +917,8 @@ async def api_clip_edit(
     facecam_mode = str(data.get("facecam_mode") or "auto").strip()
     if facecam_mode not in FACE_CAM_MODES:
         return _err("Please choose a valid facecam mode.")
-    if facecam_mode == "manual" and not ent["advanced_positioning"]:
-        return _err("Manual facecam positioning requires the Pro plan.")
+    if facecam_mode == "manual" and not ent["manual_editing"]:
+        return _err("Manual facecam positioning requires the Lite or Pro plan.")
     start = _as_float(data.get("start_s"))
     end = _as_float(data.get("end_s"))
     if start is None or end is None:
@@ -940,6 +956,7 @@ async def api_clip_edit(
         facecam_y=coords["facecam_y"],
         facecam_w=coords["facecam_w"],
         facecam_h=coords["facecam_h"],
+        **editor_fields,
     )
     db.add(new_job)
     db.flush()
@@ -1481,6 +1498,7 @@ def api_settings(user: User = Depends(api_require_user), db: Session = Depends(g
         "default_export_height": default_export_height,
         "caption_styles": _caption_style_options(user),
         "export_heights": allowed_heights,
+        **EDITOR_OPTION_LISTS,
     }
 
 

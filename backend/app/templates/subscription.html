@@ -30,7 +30,7 @@
     <li>{% if entitlements.caption_styles == 'all' %}All caption styles{% else %}{{ entitlements.caption_styles }} caption style{{ '' if entitlements.caption_styles == 1 else 's' }}{% endif %}</li>
     <li>{{ 'YouTube Live monitoring' if entitlements.youtube_live_monitoring else 'No YouTube Live monitoring' }}</li>
     <li>{{ '4K export' if entitlements['4k_export'] else 'Standard export' }}</li>
-    <li>{{ 'Advanced facecam positioning' if entitlements.advanced_positioning else 'Automatic facecam positioning' }}</li>
+    <li>{{ 'Manual facecam positioning' if entitlements.manual_editing else 'Automatic facecam positioning' }}</li>
   </ul>
   <p class="muted">Renewal: a new subscription period starts when you pay again. Renewing the same plan before expiry keeps your unused credits and adds the new plan credits; validity restarts for 30 days.</p>
   <p class="muted"><strong>Plan changes need owner confirmation — contact support.</strong> To change plan, open a support request and the owner will confirm it.</p>

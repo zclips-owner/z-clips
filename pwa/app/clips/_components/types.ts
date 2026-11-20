@@ -101,9 +101,76 @@ export interface ClipJob {
   trim_start_s: number | null;
   trim_end_s: number | null;
   facecam_mode: string | null;
+  aspect_ratio: string | null;
+  layout: string | null;
+  caption_size: string | null;
+  caption_position: string | null;
+  caption_bg: string | null;
+  sticker_text: string | null;
+  post_author: string | null;
+  post_text: string | null;
   attempts: number;
   created_at: string;
   updated_at: string;
+}
+
+/** Defaults for the new editor fields (server defaults, used when null). */
+export const DEFAULT_ASPECT_RATIO = "9:16";
+export const DEFAULT_LAYOUT = "standard";
+export const DEFAULT_CAPTION_SIZE = "medium";
+export const DEFAULT_CAPTION_POSITION = "bottom";
+export const DEFAULT_CAPTION_BG = "outline";
+
+/** Hardcoded fallbacks for the option lists the API may return. */
+export const FALLBACK_ASPECT_RATIOS = ["9:16", "1:1", "4:3", "16:9"];
+export const FALLBACK_LAYOUTS = ["standard", "facecam_top", "facecam_side"];
+export const FALLBACK_CAPTION_SIZES = ["small", "medium", "large"];
+export const FALLBACK_CAPTION_POSITIONS = ["bottom", "middle", "top"];
+export const FALLBACK_CAPTION_BGS = ["none", "box", "outline"];
+
+/** Top-level option lists the API may return alongside a job / settings. */
+export interface EditorOptionLists {
+  aspect_ratios?: string[] | null;
+  layouts?: string[] | null;
+  caption_sizes?: string[] | null;
+  caption_positions?: string[] | null;
+  caption_bgs?: string[] | null;
+}
+
+/** Prefer the API-provided list when present, else the hardcoded fallback. */
+export function optionList(
+  fromApi: string[] | null | undefined,
+  fallback: string[]
+): string[] {
+  return Array.isArray(fromApi) && fromApi.length > 0 ? fromApi : fallback;
+}
+
+export function aspectRatioLabel(value: string): string {
+  switch (value) {
+    case "9:16":
+      return "Vertical 9:16 — Reels/Shorts/TikTok";
+    case "1:1":
+      return "Square 1:1 — Feed";
+    case "4:3":
+      return "Portrait 4:3";
+    case "16:9":
+      return "Landscape 16:9 — YouTube/Desktop";
+    default:
+      return value;
+  }
+}
+
+export function layoutLabel(value: string): string {
+  switch (value) {
+    case "standard":
+      return "Standard";
+    case "facecam_top":
+      return "Facecam on top — Solo";
+    case "facecam_side":
+      return "Facecam on side";
+    default:
+      return value;
+  }
 }
 
 export interface CaptionStyle {

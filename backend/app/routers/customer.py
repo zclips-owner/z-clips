@@ -35,6 +35,7 @@ from ..models import (
     Subscription,
     User,
 )
+from ..editor_fields import EDITOR_OPTION_LISTS, parse_editor_fields
 from ..plans import (
     CAPTION_STYLES,
     caption_style_allowed,
@@ -98,6 +99,7 @@ def _clip_new_context(request: Request, user: User, error: str | None = None) ->
         "export_heights": export_heights_allowed(user),
         "can_create": can_create,
         "error": error,
+        **EDITOR_OPTION_LISTS,
     }
 
 
@@ -117,6 +119,7 @@ def _editor_context(
         "export_heights": export_heights_allowed(user),
         "can_edit": can_edit,
         "error": error,
+        **EDITOR_OPTION_LISTS,
     }
 
 
@@ -291,6 +294,14 @@ async def clip_new_submit(
     caption_style: str = Form(default="simple"),
     export_height: str = Form(default="1280"),
     facecam_mode: str = Form(default="auto"),
+    aspect_ratio: str = Form(default="9:16"),
+    layout: str = Form(default="standard"),
+    caption_size: str = Form(default="medium"),
+    caption_position: str = Form(default="bottom"),
+    caption_bg: str = Form(default="outline"),
+    sticker_text: str = Form(default=""),
+    post_author: str = Form(default=""),
+    post_text: str = Form(default=""),
     source_url: str = Form(default=""),
     csrf_token: str = Form(default=""),
     video: UploadFile | None = File(default=None),
@@ -308,6 +319,7 @@ async def clip_new_submit(
     caption_style = (caption_style or "").strip()
     facecam_mode = (facecam_mode or "auto").strip()
     has_file = video is not None and bool(video.filename)
+    ent = entitlements_for(user)
 
     if not title:
         return fail("Please give your clip a title.")
@@ -315,6 +327,17 @@ async def clip_new_submit(
         return fail("Title must be 200 characters or fewer.")
     if not caption_style_allowed(user, caption_style):
         return fail("That caption style is not available on your plan — please upgrade to use it.")
+    editor_fields, editor_error = parse_editor_fields(
+        {
+            "aspect_ratio": aspect_ratio, "layout": layout,
+            "caption_size": caption_size, "caption_position": caption_position,
+            "caption_bg": caption_bg, "sticker_text": sticker_text,
+            "post_author": post_author, "post_text": post_text,
+        },
+        ent["manual_editing"],
+    )
+    if editor_error:
+        return fail(editor_error)
     try:
         export_height_int = int(export_height)
     except (TypeError, ValueError):
@@ -323,8 +346,8 @@ async def clip_new_submit(
         return fail("That export height is not available on your plan — please upgrade to use it.")
     if facecam_mode not in FACE_CAM_MODES:
         return fail("Please choose a valid facecam mode.")
-    if facecam_mode == "manual" and not entitlements_for(user)["advanced_positioning"]:
-        return fail("Manual facecam positioning requires the Pro plan.")
+    if facecam_mode == "manual" and not ent["manual_editing"]:
+        return fail("Manual facecam positioning requires the Lite or Pro plan.")
     if not has_file and not source_url:
         return fail("Upload a video file or paste a source URL.")
     if has_file and not is_allowed_video(video.filename or ""):
@@ -389,6 +412,7 @@ async def clip_new_submit(
         caption_style=caption_style,
         export_height=export_height_int,
         facecam_mode=facecam_mode,
+        **editor_fields,
     )
     db.add(job)
     db.flush()
@@ -460,6 +484,14 @@ def clip_edit_submit(
     facecam_y: str | None = Form(default=None),
     facecam_w: str | None = Form(default=None),
     facecam_h: str | None = Form(default=None),
+    aspect_ratio: str = Form(default="9:16"),
+    layout: str = Form(default="standard"),
+    caption_size: str = Form(default="medium"),
+    caption_position: str = Form(default="bottom"),
+    caption_bg: str = Form(default="outline"),
+    sticker_text: str = Form(default=""),
+    post_author: str = Form(default=""),
+    post_text: str = Form(default=""),
     csrf_token: str = Form(default=""),
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -484,6 +516,17 @@ def clip_edit_submit(
         return fail("Only candidate clips can be edited.")
     if not caption_style_allowed(user, (caption_style or "").strip()):
         return fail("That caption style is not available on your plan — please upgrade to use it.")
+    editor_fields, editor_error = parse_editor_fields(
+        {
+            "aspect_ratio": aspect_ratio, "layout": layout,
+            "caption_size": caption_size, "caption_position": caption_position,
+            "caption_bg": caption_bg, "sticker_text": sticker_text,
+            "post_author": post_author, "post_text": post_text,
+        },
+        ent["manual_editing"],
+    )
+    if editor_error:
+        return fail(editor_error)
     try:
         export_height_int = int(export_height)
     except (TypeError, ValueError):
@@ -493,8 +536,8 @@ def clip_edit_submit(
     facecam_mode = (facecam_mode or "auto").strip()
     if facecam_mode not in FACE_CAM_MODES:
         return fail("Please choose a valid facecam mode.")
-    if facecam_mode == "manual" and not ent["advanced_positioning"]:
-        return fail("Manual facecam positioning requires the Pro plan.")
+    if facecam_mode == "manual" and not ent["manual_editing"]:
+        return fail("Manual facecam positioning requires the Lite or Pro plan.")
     try:
         start = float(start_s)
         end = float(end_s)
@@ -539,6 +582,7 @@ def clip_edit_submit(
         facecam_y=coords["facecam_y"],
         facecam_w=coords["facecam_w"],
         facecam_h=coords["facecam_h"],
+        **editor_fields,
     )
     db.add(new_job)
     db.flush()

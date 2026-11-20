@@ -166,6 +166,15 @@ class ClipJob(Base):
     facecam_y: Mapped[float | None] = mapped_column(Float, nullable=True)
     facecam_w: Mapped[float | None] = mapped_column(Float, nullable=True)
     facecam_h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # YIZERGE-style editor fields (Lite + Pro via manual_editing).
+    aspect_ratio: Mapped[str] = mapped_column(String(8), default="9:16")  # 9:16|1:1|4:3|16:9
+    layout: Mapped[str] = mapped_column(String(16), default="standard")  # standard|facecam_top|facecam_side
+    caption_size: Mapped[str] = mapped_column(String(8), default="medium")  # small|medium|large
+    caption_position: Mapped[str] = mapped_column(String(8), default="bottom")  # bottom|middle|top
+    caption_bg: Mapped[str] = mapped_column(String(8), default="outline")  # none|box|outline
+    sticker_text: Mapped[str] = mapped_column(String(40), default="")
+    post_author: Mapped[str] = mapped_column(String(40), default="")
+    post_text: Mapped[str] = mapped_column(String(140), default="")
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     worker_id: Mapped[str] = mapped_column(String(64), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

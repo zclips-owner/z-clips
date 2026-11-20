@@ -16,6 +16,10 @@ the owner before implementation (see billing.apply_payment).
 """
 from datetime import datetime, timedelta, timezone
 
+# NOTE on `advanced_positioning`: it gates 4K export and YouTube live
+# monitoring ONLY. Manual facecam positioning and every editor feature
+# (aspect ratio, layout, caption typography, sticker, social-post card)
+# are gated on `manual_editing` instead, so Lite users get them too.
 PLANS = {
     "free": {
         "name": "Free",
@@ -60,6 +64,35 @@ CAPTION_STYLES = {
 FREE_CAPTION_STYLES = ["simple"]
 LITE_CAPTION_STYLES = ["simple", "bold", "karaoke"]
 PRO_CAPTION_STYLES = list(CAPTION_STYLES.keys())
+
+# Editor options (YIZERGE-style editor features, unlocked for Lite + Pro
+# via the `manual_editing` entitlement — see app/editor_fields.py).
+# `advanced_positioning` is now ONLY about 4K export and YouTube live
+# monitoring; it no longer gates manual facecam positioning or any editor
+# feature. Free keeps manual_editing=False, so Free users get none of
+# these and no manual facecam.
+ASPECT_RATIOS = ["9:16", "1:1", "4:3", "16:9"]
+LAYOUTS = ["standard", "facecam_top", "facecam_side"]
+CAPTION_SIZES = ["small", "medium", "large"]
+CAPTION_POSITIONS = ["bottom", "middle", "top"]
+CAPTION_BGS = ["none", "box", "outline"]
+
+# (width, height) ratio numerators for each aspect ratio. The export height
+# is the height; the width is derived from it (e.g. 16:9 at 1280 -> 2276x1280).
+ASPECT_RATIO_DIMS = {
+    "9:16": (9, 16),
+    "1:1": (1, 1),
+    "4:3": (4, 3),
+    "16:9": (16, 9),
+}
+DEFAULT_ASPECT_RATIO = "9:16"
+DEFAULT_LAYOUT = "standard"
+DEFAULT_CAPTION_SIZE = "medium"
+DEFAULT_CAPTION_POSITION = "bottom"
+DEFAULT_CAPTION_BG = "outline"
+MAX_STICKER_CHARS = 40
+MAX_POST_AUTHOR_CHARS = 40
+MAX_POST_TEXT_CHARS = 140
 
 PROMO_ENDS_AT = datetime(2026, 11, 30, 23, 59, 59, tzinfo=timezone.utc)
 PROMO_MAX_SEATS = 20

@@ -29,14 +29,14 @@
     {% else %}
     <div style="display: grid; place-items: center; aspect-ratio: {{ clip.width or 9 }} / {{ clip.height or 16 }}; width: 100%; border-radius: 12px; background: linear-gradient(135deg, #1b1030, #2a1650); color: #c4b5fd; font-size: 0.9rem;">No preview available for this clip.</div>
     {% endif %}
-    {% if can_edit and entitlements.advanced_positioning %}
+    {% if can_edit %}
     <div id="facecam-box" role="button" aria-label="Facecam position — drag to move, drag the corner handle to resize" style="position: absolute; display: none; cursor: move; touch-action: none; border: 2px dashed #fb923c; border-radius: 8px; background: rgba(249, 115, 22, 0.2); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);">
       <span style="position: absolute; left: 4px; top: 4px; pointer-events: none; border-radius: 4px; background: rgba(0, 0, 0, 0.6); padding: 1px 6px; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #fdba74;">Facecam</span>
       <div id="facecam-handle" aria-label="Resize facecam" style="position: absolute; right: -8px; bottom: -8px; width: 20px; height: 20px; cursor: nwse-resize; touch-action: none; border-radius: 50%; border: 2px solid #fff; background: #f97316;"></div>
     </div>
     {% endif %}
   </div>
-  {% if can_edit and entitlements.advanced_positioning %}
+  {% if can_edit %}
   <p class="hint" id="facecam-drag-hint" hidden>Drag the orange box on the preview to move the facecam, or drag its corner handle to resize it. The X / Y / Width / Height fields below update as you drag.</p>
   {% endif %}
 </section>
@@ -74,24 +74,62 @@
     <select id="facecam_mode" name="facecam_mode">
       <option value="auto" {% if job and job.facecam_mode == 'auto' %}selected{% endif %}>Automatic (AI decides)</option>
       <option value="off" {% if job and job.facecam_mode == 'off' %}selected{% endif %}>Off</option>
-      <option value="manual" {% if job and job.facecam_mode == 'manual' %}selected{% endif %} {% if not entitlements.advanced_positioning %}disabled{% endif %}>Manual position{% if not entitlements.advanced_positioning %} — Pro only{% endif %}</option>
+      <option value="manual" {% if job and job.facecam_mode == 'manual' %}selected{% endif %}>Manual position (Lite / Pro)</option>
     </select>
-    {% if not entitlements.advanced_positioning %}
-    <p class="hint">Manual facecam positioning is a Pro feature. <a href="/plans">Upgrade to Pro</a> to set the facecam position yourself.</p>
-    {% endif %}
 
     <div class="form-grid">
-      <div><label for="facecam_x">Facecam X</label><input id="facecam_x" type="number" name="facecam_x" step="0.01" min="0" max="1" value="{{ job.facecam_x if job and job.facecam_x is not none else '' }}" {% if not entitlements.advanced_positioning %}disabled{% endif %}></div>
-      <div><label for="facecam_y">Facecam Y</label><input id="facecam_y" type="number" name="facecam_y" step="0.01" min="0" max="1" value="{{ job.facecam_y if job and job.facecam_y is not none else '' }}" {% if not entitlements.advanced_positioning %}disabled{% endif %}></div>
-      <div><label for="facecam_w">Facecam width</label><input id="facecam_w" type="number" name="facecam_w" step="0.01" min="0" max="1" value="{{ job.facecam_w if job and job.facecam_w is not none else '' }}" {% if not entitlements.advanced_positioning %}disabled{% endif %}></div>
-      <div><label for="facecam_h">Facecam height</label><input id="facecam_h" type="number" name="facecam_h" step="0.01" min="0" max="1" value="{{ job.facecam_h if job and job.facecam_h is not none else '' }}" {% if not entitlements.advanced_positioning %}disabled{% endif %}></div>
+      <div><label for="facecam_x">Facecam X</label><input id="facecam_x" type="number" name="facecam_x" step="0.01" min="0" max="1" value="{{ job.facecam_x if job and job.facecam_x is not none else '' }}"></div>
+      <div><label for="facecam_y">Facecam Y</label><input id="facecam_y" type="number" name="facecam_y" step="0.01" min="0" max="1" value="{{ job.facecam_y if job and job.facecam_y is not none else '' }}"></div>
+      <div><label for="facecam_w">Facecam width</label><input id="facecam_w" type="number" name="facecam_w" step="0.01" min="0" max="1" value="{{ job.facecam_w if job and job.facecam_w is not none else '' }}"></div>
+      <div><label for="facecam_h">Facecam height</label><input id="facecam_h" type="number" name="facecam_h" step="0.01" min="0" max="1" value="{{ job.facecam_h if job and job.facecam_h is not none else '' }}"></div>
     </div>
-    {% if entitlements.advanced_positioning %}
     <p class="hint">Tip: with Manual position selected, drag the orange box on the preview above — the fields update as you drag.</p>
-    {% endif %}
-    {% if not entitlements.advanced_positioning %}
-    <p class="hint">Facecam position fields are disabled on your plan — the AI positions the facecam automatically.</p>
-    {% endif %}
+
+    <label for="aspect_ratio">Aspect ratio</label>
+    <select id="aspect_ratio" name="aspect_ratio">
+      {% for r in aspect_ratios %}
+      <option value="{{ r }}" {% if job and job.aspect_ratio == r %}selected{% endif %}>{{ r }}{% if r == '9:16' %} — Vertical (Reels / Shorts / TikTok){% elif r == '1:1' %} — Square (Feed){% elif r == '4:3' %} — Portrait{% elif r == '16:9' %} — Landscape (YouTube / Desktop){% endif %}</option>
+      {% endfor %}
+    </select>
+
+    <label for="layout">Framing layout</label>
+    <select id="layout" name="layout">
+      <option value="standard" {% if not job or job.layout == 'standard' %}selected{% endif %}>Standard</option>
+      <option value="facecam_top" {% if job and job.layout == 'facecam_top' %}selected{% endif %}>Facecam on top — Solo</option>
+      <option value="facecam_side" {% if job and job.layout == 'facecam_side' %}selected{% endif %}>Facecam on side</option>
+    </select>
+    <p class="hint">Solo layouts need a manual facecam region above; without one the standard layout is used.</p>
+
+    <label for="caption_size">Caption size</label>
+    <select id="caption_size" name="caption_size">
+      <option value="small" {% if job and job.caption_size == 'small' %}selected{% endif %}>Small</option>
+      <option value="medium" {% if not job or job.caption_size == 'medium' %}selected{% endif %}>Medium</option>
+      <option value="large" {% if job and job.caption_size == 'large' %}selected{% endif %}>Large</option>
+    </select>
+
+    <label for="caption_position">Caption position</label>
+    <select id="caption_position" name="caption_position">
+      <option value="bottom" {% if not job or job.caption_position == 'bottom' %}selected{% endif %}>Bottom</option>
+      <option value="middle" {% if job and job.caption_position == 'middle' %}selected{% endif %}>Middle</option>
+      <option value="top" {% if job and job.caption_position == 'top' %}selected{% endif %}>Top</option>
+    </select>
+
+    <label for="caption_bg">Caption background</label>
+    <select id="caption_bg" name="caption_bg">
+      <option value="none" {% if job and job.caption_bg == 'none' %}selected{% endif %}>None</option>
+      <option value="box" {% if job and job.caption_bg == 'box' %}selected{% endif %}>Box</option>
+      <option value="outline" {% if not job or job.caption_bg == 'outline' %}selected{% endif %}>Outline</option>
+    </select>
+
+    <label for="sticker_text">Sticker / callout text (optional)</label>
+    <input id="sticker_text" name="sticker_text" maxlength="40" value="{{ job.sticker_text if job and job.sticker_text else '' }}" placeholder="e.g. Which one?">
+    <p class="hint">Leave empty for no sticker.</p>
+
+    <label for="post_author">Social post author (optional)</label>
+    <input id="post_author" name="post_author" maxlength="40" value="{{ job.post_author if job and job.post_author else '' }}" placeholder="e.g. @username">
+    <label for="post_text">Social post text (optional)</label>
+    <input id="post_text" name="post_text" maxlength="140" value="{{ job.post_text if job and job.post_text else '' }}" placeholder="Post text shown on the card">
+    <p class="hint">The social-post card only shows when both an author and text are set.</p>
 
     <button class="btn primary full" type="submit">Save &amp; re-render (uses 1 credit)</button>
   </fieldset>
@@ -116,7 +154,7 @@
 <p class="muted">This clip was rejected. You can still edit and re-render it above.</p>
 {% endif %}
 
-{% if can_edit and entitlements.advanced_positioning %}
+{% if can_edit %}
 <script>
 (function () {
   var DEFAULTS = { x: 0.68, y: 0.05, w: 0.28, h: 0.28 };

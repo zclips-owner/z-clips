@@ -38,14 +38,66 @@
   <select id="facecam_mode" name="facecam_mode">
     <option value="auto" selected>Automatic (AI decides)</option>
     <option value="off">Off</option>
-    {% if entitlements.advanced_positioning %}
-    <option value="manual">Manual position (Pro)</option>
+    {% if entitlements.manual_editing %}
+    <option value="manual">Manual position (Lite / Pro)</option>
     {% else %}
-    <option value="manual" disabled>Manual position — Pro only</option>
+    <option value="manual" disabled>Manual position — Lite / Pro only</option>
     {% endif %}
   </select>
-  {% if not entitlements.advanced_positioning %}
-  <p class="hint">Manual facecam positioning is a Pro feature. <a href="/plans">Upgrade to Pro</a> to set the facecam position yourself.</p>
+  {% if not entitlements.manual_editing %}
+  <p class="hint">Manual facecam positioning needs the Lite or Pro plan. <a href="/plans">Upgrade</a> to set the facecam position yourself.</p>
+  {% endif %}
+
+  <fieldset {% if not entitlements.manual_editing %}disabled{% endif %}>
+    <legend>Editing options (Lite / Pro)</legend>
+    <label for="aspect_ratio">Aspect ratio</label>
+    <select id="aspect_ratio" name="aspect_ratio">
+      {% for r in aspect_ratios %}
+      <option value="{{ r }}"{% if r == '9:16' %} selected{% endif %}>{{ r }}{% if r == '9:16' %} — Vertical (Reels / Shorts / TikTok){% elif r == '1:1' %} — Square (Feed){% elif r == '4:3' %} — Portrait{% elif r == '16:9' %} — Landscape (YouTube / Desktop){% endif %}</option>
+      {% endfor %}
+    </select>
+
+    <label for="layout">Framing layout</label>
+    <select id="layout" name="layout">
+      <option value="standard" selected>Standard</option>
+      <option value="facecam_top">Facecam on top — Solo</option>
+      <option value="facecam_side">Facecam on side</option>
+    </select>
+    <p class="hint">Solo layouts need a manual facecam region — set the facecam in the clip editor after creation (Lite / Pro).</p>
+
+    <label for="caption_size">Caption size</label>
+    <select id="caption_size" name="caption_size">
+      <option value="small">Small</option>
+      <option value="medium" selected>Medium</option>
+      <option value="large">Large</option>
+    </select>
+
+    <label for="caption_position">Caption position</label>
+    <select id="caption_position" name="caption_position">
+      <option value="bottom" selected>Bottom</option>
+      <option value="middle">Middle</option>
+      <option value="top">Top</option>
+    </select>
+
+    <label for="caption_bg">Caption background</label>
+    <select id="caption_bg" name="caption_bg">
+      <option value="none">None</option>
+      <option value="box">Box</option>
+      <option value="outline" selected>Outline</option>
+    </select>
+
+    <label for="sticker_text">Sticker / callout text (optional)</label>
+    <input id="sticker_text" name="sticker_text" maxlength="40" placeholder="e.g. Which one?">
+    <p class="hint">Leave empty for no sticker.</p>
+
+    <label for="post_author">Social post author (optional)</label>
+    <input id="post_author" name="post_author" maxlength="40" placeholder="e.g. @username">
+    <label for="post_text">Social post text (optional)</label>
+    <input id="post_text" name="post_text" maxlength="140" placeholder="Post text shown on the card">
+    <p class="hint">The social-post card only shows when both an author and text are set.</p>
+  </fieldset>
+  {% if not entitlements.manual_editing %}
+  <p class="hint">Editing options (aspect ratio, layout, captions, sticker, post card, manual facecam) need the Lite or Pro plan. <a href="/plans">Upgrade</a> to use them.</p>
   {% endif %}
 
   <label for="video">Video file</label>

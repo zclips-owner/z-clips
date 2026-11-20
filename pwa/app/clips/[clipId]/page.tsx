@@ -7,18 +7,32 @@ import { ApiError, apiFetch, isUnauthenticated } from "@/lib/api";
 import { AppShell } from "@/components/app-shell";
 import { ErrorState, LoadingState } from "../_components/clip-ui";
 import {
+  DEFAULT_ASPECT_RATIO,
+  DEFAULT_CAPTION_BG,
+  DEFAULT_CAPTION_POSITION,
+  DEFAULT_CAPTION_SIZE,
+  DEFAULT_LAYOUT,
+  FALLBACK_ASPECT_RATIOS,
+  FALLBACK_CAPTION_BGS,
+  FALLBACK_CAPTION_POSITIONS,
+  FALLBACK_CAPTION_SIZES,
+  FALLBACK_LAYOUTS,
+  aspectRatioLabel,
   formatDate,
   formatDuration,
+  layoutLabel,
+  optionList,
   statusBadgeClass,
   statusLabel,
   type CaptionStyle,
   type ClipDetail,
   type ClipJob,
+  type EditorOptionLists,
   type Entitlements,
   type UserSummary
 } from "../_components/types";
 
-interface ClipResponse {
+interface ClipResponse extends EditorOptionLists {
   clip: ClipDetail;
   job: ClipJob;
   entitlements: Entitlements;
@@ -73,6 +87,14 @@ export default function ClipEditorPage() {
   const [facecamY, setFacecamY] = useState("");
   const [facecamW, setFacecamW] = useState("");
   const [facecamH, setFacecamH] = useState("");
+  const [aspectRatio, setAspectRatio] = useState(DEFAULT_ASPECT_RATIO);
+  const [layout, setLayout] = useState(DEFAULT_LAYOUT);
+  const [captionSize, setCaptionSize] = useState(DEFAULT_CAPTION_SIZE);
+  const [captionPosition, setCaptionPosition] = useState(DEFAULT_CAPTION_POSITION);
+  const [captionBg, setCaptionBg] = useState(DEFAULT_CAPTION_BG);
+  const [stickerText, setStickerText] = useState("");
+  const [postAuthor, setPostAuthor] = useState("");
+  const [postText, setPostText] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -105,6 +127,14 @@ export default function ClipEditorPage() {
           ? res.job.facecam_mode
           : "auto"
       );
+      setAspectRatio(res.job.aspect_ratio ?? DEFAULT_ASPECT_RATIO);
+      setLayout(res.job.layout ?? DEFAULT_LAYOUT);
+      setCaptionSize(res.job.caption_size ?? DEFAULT_CAPTION_SIZE);
+      setCaptionPosition(res.job.caption_position ?? DEFAULT_CAPTION_POSITION);
+      setCaptionBg(res.job.caption_bg ?? DEFAULT_CAPTION_BG);
+      setStickerText(res.job.sticker_text ?? "");
+      setPostAuthor(res.job.post_author ?? "");
+      setPostText(res.job.post_text ?? "");
     } catch (err) {
       if (isUnauthenticated(err)) {
         router.push("/login");
@@ -133,7 +163,17 @@ export default function ClipEditorPage() {
         : null;
 
   const showManualCoords =
-    facecamMode === "manual" && !!data?.entitlements.advanced_positioning;
+    facecamMode === "manual" && !!data?.entitlements.manual_editing;
+
+  // Option lists: prefer the API-provided lists, fall back to hardcoded.
+  const aspectRatios = optionList(data?.aspect_ratios, FALLBACK_ASPECT_RATIOS);
+  const layouts = optionList(data?.layouts, FALLBACK_LAYOUTS);
+  const captionSizes = optionList(data?.caption_sizes, FALLBACK_CAPTION_SIZES);
+  const captionPositions = optionList(
+    data?.caption_positions,
+    FALLBACK_CAPTION_POSITIONS
+  );
+  const captionBgs = optionList(data?.caption_bgs, FALLBACK_CAPTION_BGS);
 
   // --- Draggable facecam rectangle (manual mode) -------------------------
   // The rectangle is derived from the X/Y/W/H fields (defaults when empty),
@@ -224,7 +264,15 @@ export default function ClipEditorPage() {
       end_s: end,
       caption_style: captionStyle,
       export_height: Number(exportHeight),
-      facecam_mode: facecamMode
+      facecam_mode: facecamMode,
+      aspect_ratio: aspectRatio,
+      layout,
+      caption_size: captionSize,
+      caption_position: captionPosition,
+      caption_bg: captionBg,
+      sticker_text: stickerText,
+      post_author: postAuthor,
+      post_text: postText
     };
     if (showManualCoords) {
       const coords = { x: facecamX, y: facecamY, w: facecamW, h: facecamH };
@@ -431,10 +479,10 @@ export default function ClipEditorPage() {
                     <option value="auto">Auto</option>
                     <option
                       value="manual"
-                      disabled={!data.entitlements.advanced_positioning}
+                      disabled={!data.entitlements.manual_editing}
                     >
                       Manual
-                      {!data.entitlements.advanced_positioning ? " (Pro only)" : ""}
+                      {!data.entitlements.manual_editing ? " (Lite/Pro)" : ""}
                     </option>
                     <option value="off">Off</option>
                   </select>
@@ -487,6 +535,116 @@ export default function ClipEditorPage() {
                     </label>
                   </fieldset>
                 )}
+
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Aspect ratio
+                  <select
+                    value={aspectRatio}
+                    onChange={(e) => setAspectRatio(e.target.value)}
+                  >
+                    {aspectRatios.map((r) => (
+                      <option key={r} value={r}>
+                        {aspectRatioLabel(r)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Framing layout
+                  <select value={layout} onChange={(e) => setLayout(e.target.value)}>
+                    {layouts.map((l) => (
+                      <option key={l} value={l}>
+                        {layoutLabel(l)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="grid gap-1.5 text-sm font-medium">
+                    Caption size
+                    <select
+                      value={captionSize}
+                      onChange={(e) => setCaptionSize(e.target.value)}
+                    >
+                      {captionSizes.map((s) => (
+                        <option key={s} value={s}>
+                          {s.charAt(0).toUpperCase() + s.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1.5 text-sm font-medium">
+                    Caption position
+                    <select
+                      value={captionPosition}
+                      onChange={(e) => setCaptionPosition(e.target.value)}
+                    >
+                      {captionPositions.map((p) => (
+                        <option key={p} value={p}>
+                          {p.charAt(0).toUpperCase() + p.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Caption background
+                  <select
+                    value={captionBg}
+                    onChange={(e) => setCaptionBg(e.target.value)}
+                  >
+                    {captionBgs.map((b) => (
+                      <option key={b} value={b}>
+                        {b.charAt(0).toUpperCase() + b.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Sticker / callout text
+                  <input
+                    type="text"
+                    value={stickerText}
+                    onChange={(e) => setStickerText(e.target.value)}
+                    maxLength={40}
+                    placeholder="e.g. Wait for it…"
+                  />
+                  <span className="muted text-xs">
+                    {stickerText.length}/40 characters — leave empty for no
+                    sticker.
+                  </span>
+                </label>
+
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Social post author
+                  <input
+                    type="text"
+                    value={postAuthor}
+                    onChange={(e) => setPostAuthor(e.target.value)}
+                    maxLength={40}
+                    placeholder="e.g. @username"
+                  />
+                  <span className="muted text-xs">{postAuthor.length}/40 characters</span>
+                </label>
+
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Social post text
+                  <input
+                    type="text"
+                    value={postText}
+                    onChange={(e) => setPostText(e.target.value)}
+                    maxLength={140}
+                    placeholder="e.g. This moment broke the internet…"
+                  />
+                  <span className="muted text-xs">
+                    {postText.length}/140 characters — the social-post card
+                    only shows when both author and text are set.
+                  </span>
+                </label>
 
                 {formError && (
                   <p
