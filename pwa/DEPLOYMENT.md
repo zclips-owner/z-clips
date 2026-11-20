@@ -113,6 +113,7 @@ Free hosting always has a trade-off. Be honest about it with users:
 |---|---|---|
 | `FASTAPI_BASE_URL` | Yes | Backend base URL (e.g. `http://127.0.0.1:8000` locally, the Render URL in production) |
 | `NEXT_PUBLIC_APP_URL` | No | Public PWA URL (e.g. `http://localhost:3000` locally) |
+| `NEXT_PUBLIC_FASTAPI_URL` | Yes in production | Public backend URL the browser posts video files to DIRECTLY, bypassing the Vercel proxy (which rejects bodies over ~4.5 MB). Same value as the backend's public URL, e.g. `https://z-clips.ethiodeploy.app`. When unset, file uploads fall back to the proxied `/api/v1` path and large videos fail. |
 
 ## Run locally
 

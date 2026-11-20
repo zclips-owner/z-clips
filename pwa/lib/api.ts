@@ -107,3 +107,97 @@ export async function apiFetch<T = unknown>(path: string, options: ApiFetchOptio
 
   return data as T;
 }
+
+/**
+ * Public backend base URL, for requests that must bypass the Vercel
+ * proxy. Set NEXT_PUBLIC_FASTAPI_URL to the backend's public URL
+ * (e.g. https://z-clips.ethiodeploy.app). Empty when unset — callers
+ * must then fall back to the proxied /api/v1 path.
+ */
+export function getFastApiBaseUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_FASTAPI_URL ?? "";
+  return raw.trim().replace(/\/+$/, "");
+}
+
+export interface UploadTokenResponse {
+  upload_token: string;
+  upload_url: string;
+}
+
+export interface DirectUploadResponse {
+  job: { id: number };
+}
+
+/**
+ * Upload a video file DIRECTLY to the backend, bypassing the Vercel
+ * serverless proxy (which rejects request bodies over ~4.5 MB — that is
+ * the "Request Entity Too Large / FUNCTION_PAYLOAD_TOO_LARGE" failure).
+ *
+ * Two steps:
+ *  (a) POST /clips/upload-token via the proxy (small JSON request) to
+ *      get a one-time token + the backend upload URL.
+ *  (b) POST the FormData straight to that backend URL with
+ *      credentials: "omit" — the session cookie is set for the Vercel
+ *      domain and the browser will not send it cross-origin, so the
+ *      upload token (sent as a form field) is the auth for this request.
+ * No CSRF header is sent on step (b): the token itself is the auth.
+ *
+ * Only for file uploads. URL-source creates and every other API call
+ * stay on the proxied apiFetch path.
+ */
+export async function directUploadClip(
+  form: FormData
+): Promise<DirectUploadResponse> {
+  const tokenRes = await apiFetch<UploadTokenResponse>("/clips/upload-token", {
+    method: "POST",
+    body: {}
+  });
+  const uploadToken = tokenRes?.upload_token;
+  const uploadUrl = tokenRes?.upload_url;
+  if (typeof uploadToken !== "string" || uploadToken.length === 0) {
+    throw new ApiError(502, "Could not start the upload. Please try again.");
+  }
+  if (typeof uploadUrl !== "string" || uploadUrl.length === 0) {
+    throw new ApiError(502, "Could not start the upload. Please try again.");
+  }
+
+  const directForm = new FormData();
+  form.forEach((value, key) => {
+    directForm.append(key, value);
+  });
+  directForm.set("upload_token", uploadToken);
+
+  let res: Response;
+  try {
+    res = await fetch(uploadUrl, {
+      method: "POST",
+      body: directForm,
+      credentials: "omit"
+    });
+  } catch {
+    throw new ApiError(502, "Could not reach the upload server. Please try again.");
+  }
+
+  const contentType = res.headers.get("content-type") ?? "";
+  const data: unknown = contentType.includes("application/json")
+    ? await res.json().catch(() => null)
+    : await res.text().catch(() => "");
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      throw new UnauthenticatedError(
+        data && typeof data === "object" && "error" in data && typeof data.error === "string"
+          ? data.error
+          : "Please sign in."
+      );
+    }
+    const message =
+      data && typeof data === "object" && "error" in data && typeof data.error === "string"
+        ? data.error
+        : typeof data === "string" && data.length > 0
+          ? data
+          : `Upload failed (${res.status}).`;
+    throw new ApiError(res.status, message);
+  }
+  return data as DirectUploadResponse;
+}

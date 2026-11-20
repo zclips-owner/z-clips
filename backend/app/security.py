@@ -105,6 +105,7 @@ LIMITS = {
     "owner_setup": (5, 60 * 10),
     "payment_submit": (5, 60 * 10),
     "clip_create": (10, 60),    # 10 clip jobs / minute / user
+    "upload_token": (10, 60),   # 10 one-time upload tokens / minute / user
     "generic_post": (60, 60),   # 60 POSTs / minute / user
 }
 

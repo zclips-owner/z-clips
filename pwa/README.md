@@ -38,6 +38,7 @@ FASTAPI_BASE_URL=http://127.0.0.1:8000 npm run start
 |---|---|
 | `FASTAPI_BASE_URL` | FastAPI backend base URL (server-side only, default `http://127.0.0.1:8000`) |
 | `NEXT_PUBLIC_APP_URL` | Public URL of this PWA (default `http://localhost:3000`) |
+| `NEXT_PUBLIC_FASTAPI_URL` | Public backend URL the browser posts video files to DIRECTLY (default: unset = uploads go through the proxy). Required in production — the Vercel proxy rejects bodies over ~4.5 MB, so without this, large video uploads fail with `FUNCTION_PAYLOAD_TOO_LARGE`. Same value as the backend's public URL. |
 
 Never put secrets in `.env.example` or in the browser bundle.
 

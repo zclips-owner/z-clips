@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, apiFetch, isUnauthenticated } from "@/lib/api";
+import { ApiError, apiFetch, directUploadClip, getFastApiBaseUrl, isUnauthenticated } from "@/lib/api";
 import { AppShell } from "@/components/app-shell";
 import { ErrorState, LoadingState } from "../clips/_components/clip-ui";
 import {
@@ -222,10 +222,18 @@ export default function CreatePage() {
 
     setSubmitting(true);
     try {
-      const res = await apiFetch<CreateJobResponse>("/clips", {
-        method: "POST",
-        body: form
-      });
+      // File uploads go DIRECTLY to the backend (two-step: token via the
+      // proxy, then the file straight to the backend URL). The Vercel
+      // proxy rejects bodies over ~4.5 MB, so large videos must bypass
+      // it. URL-source creates stay on the proxied path.
+      const useDirectUpload =
+        sourceMode === "upload" && getFastApiBaseUrl().length > 0;
+      const res = useDirectUpload
+        ? await directUploadClip(form)
+        : await apiFetch<CreateJobResponse>("/clips", {
+            method: "POST",
+            body: form
+          });
       router.push(`/clips/jobs/${res.job.id}`);
     } catch (err) {
       if (isUnauthenticated(err)) {
@@ -329,6 +337,9 @@ export default function CreatePage() {
                       {(videoFile.size / 1024 / 1024).toFixed(1)} MB)
                     </span>
                   )}
+                  <span className="muted text-xs">
+                    Large files upload directly to the clip server.
+                  </span>
                 </label>
               ) : (
                 <label className="grid gap-1.5 text-sm">

@@ -33,11 +33,13 @@ from ..config import (
     NAYAPAY_NUMBER,
     NAYAPAY_QR_INSTRUCTION,
     NAYAPAY_QR_PATH,
+    PUBLIC_BASE_URL,
     YOUTUBE_API_KEY,
 )
 from ..database import get_db
 from ..deps import check_rate_limit, csrf_token_for, current_user, validate_csrf
 from ..editor_fields import EDITOR_OPTION_LISTS, editor_fields_for_job, parse_editor_fields
+from ..upload_tokens import consume_upload_token, issue_upload_token
 from ..models import (
     Activity,
     AppSetting,
@@ -720,17 +722,15 @@ def api_clips(
     return {"clips": [clip_ser(c) for c in clips], "jobs": [job_ser(j) for j in jobs]}
 
 
-@router.post("/clips", status_code=201)
-async def api_clip_create(
-    request: Request,
-    user: User = Depends(api_require_user),
-    db: Session = Depends(get_db),
-):
-    """Multipart clip creation — same validation + credit deduction as
-    POST /clips/new in the HTML router."""
-    _require_csrf(request)
-    check_rate_limit(request, "clip_create", key=str(user.id))
-    form = await request.form()
+async def _create_clip_job_from_form(form, user: User, db: Session) -> JSONResponse:
+    """Shared clip-job creation from a parsed multipart form.
+
+    Used by BOTH the proxied POST /clips (session cookie + CSRF) and the
+    direct POST /clips/direct-upload (one-time upload token, no cookie,
+    no CSRF). Every validation, entitlement check, credit deduction and
+    the file-size cap live here exactly once, so the two transports can
+    never drift apart. Callers do their own auth + rate limiting first.
+    """
     title = (form.get("title") or "").strip() if isinstance(form.get("title"), str) else ""
     caption_style = (form.get("caption_style") or "simple").strip() if isinstance(form.get("caption_style"), str) else "simple"
     export_height = form.get("export_height") or "1280"
@@ -835,6 +835,74 @@ async def api_clip_create(
     log_activity(db, user.id, "clip_created", f"Clip job created: {title}")
     db.commit()
     return JSONResponse({"job": job_ser(job)}, status_code=201)
+
+
+@router.post("/clips", status_code=201)
+async def api_clip_create(
+    request: Request,
+    user: User = Depends(api_require_user),
+    db: Session = Depends(get_db),
+):
+    """Multipart clip creation — same validation + credit deduction as
+    POST /clips/new in the HTML router."""
+    _require_csrf(request)
+    check_rate_limit(request, "clip_create", key=str(user.id))
+    form = await request.form()
+    return await _create_clip_job_from_form(form, user, db)
+
+
+@router.post("/clips/upload-token")
+def api_clip_upload_token(
+    request: Request,
+    user: User = Depends(api_require_user),
+    db: Session = Depends(get_db),
+):
+    """Issue a one-time token for a direct video upload.
+
+    Called via the PWA proxy (small JSON request, no file), so normal
+    session-cookie auth + CSRF apply. The PWA then POSTs the video file
+    DIRECTLY to ``upload_url`` with the token as a form field — that
+    request bypasses the Vercel proxy (which rejects bodies over
+    ~4.5 MB) and needs no session cookie. The token is single-use and
+    expires after 15 minutes; a token issued before a backend restart
+    is rejected and the PWA simply asks for a fresh one.
+    """
+    _require_csrf(request)
+    check_rate_limit(request, "upload_token", key=str(user.id))
+    token = issue_upload_token(user.id)
+    upload_url = f"{PUBLIC_BASE_URL.rstrip('/')}/api/v1/clips/direct-upload"
+    return {"upload_token": token, "upload_url": upload_url}
+
+
+@router.post("/clips/direct-upload", status_code=201)
+async def api_clip_direct_upload(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Direct video upload, bypassing the Vercel proxy's 4.5 MB limit.
+
+    Auth is the one-time ``upload_token`` form field (see
+    POST /clips/upload-token). No session cookie and no CSRF token are
+    required — the token itself is the auth, and it is consumed on
+    first presentation, so a replayed token gets 401. Once the token
+    resolves to a user, the request runs the EXACT same job-creation
+    logic as the proxied POST /clips (same validation, entitlements,
+    credit deduction and file-size cap).
+    """
+    form = await request.form()
+    raw_token = form.get("upload_token")
+    token = raw_token.strip() if isinstance(raw_token, str) else ""
+    user_id = consume_upload_token(token)
+    if user_id is None:
+        return _err(
+            "Invalid or expired upload token. Please start the upload again.",
+            status_code=401,
+        )
+    user = db.get(User, user_id)
+    if user is None or not user.is_active or user.is_suspended:
+        return _err("Please sign in.", status_code=401)
+    check_rate_limit(request, "clip_create", key=str(user.id))
+    return await _create_clip_job_from_form(form, user, db)
 
 
 @router.get("/clips/jobs/{job_id}")

@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Depends, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -38,6 +39,23 @@ app.add_middleware(
     https_only=(APP_ENV == "production"),
     session_cookie="zclips_session",
     max_age=60 * 60 * 24 * 7,
+)
+# CORS for direct-to-backend uploads only. The PWA (Vercel) POSTs video
+# files straight to this backend at /api/v1/clips/direct-upload because
+# the Vercel serverless proxy rejects bodies over ~4.5 MB. Only the two
+# known PWA origins (plus localhost for dev) are allowed — never "*" with
+# credentials. All other API calls still go through the same-origin proxy.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://z-clips.vercel.app",
+        "https://z-clips-fp55zv4py-zclips-owner.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-CSRF-Token", "Authorization"],
 )
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
