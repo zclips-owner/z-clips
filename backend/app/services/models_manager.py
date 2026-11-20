@@ -34,7 +34,21 @@ from ..models import ModelInfo
 #   (https://github.com/SYSTRAN/faster-whisper/blob/master/LICENSE)
 # - Silero VAD: MIT
 #   (https://github.com/snakers4/silero-vad/blob/master/LICENSE)
+# - Vosk code and vosk-model-small-en-us-0.15 weights: Apache 2.0
+#   (https://github.com/alphacep/vosk-api/blob/master/LICENSE)
 MODELS: list[dict] = [
+    {
+        "name": "vosk-small-en",
+        "display_name": "Vosk (small English)",
+        "purpose": "Speech-to-text transcription with word timestamps, used for captions. Lightweight — the only transcription engine that fits the 256 MB free tier (~210 MB peak). English only.",
+        "size_mb": 68,
+        "license": "Apache 2.0",
+        "license_url": "https://github.com/alphacep/vosk-api/blob/master/LICENSE",
+        "pip_package": "vosk",
+        "hf_repo": None,
+        "min_ram_mb": 256,
+        "needs_gpu": False,
+    },
     {
         "name": "faster-whisper-tiny",
         "display_name": "faster-whisper (tiny)",
@@ -87,6 +101,7 @@ MODELS: list[dict] = [
 
 _MODEL_BY_NAME = {m["name"]: m for m in MODELS}
 _WHISPER_MODELS = ("faster-whisper-tiny", "faster-whisper-base", "faster-whisper-small")
+VOSK_MODEL = "vosk-small-en"
 # Preferred transcription model when several are installed: smallest first
 # is fastest on CPU; the owner can install a larger one for accuracy.
 _WHISPER_PREFERENCE = ("faster-whisper-tiny", "faster-whisper-base", "faster-whisper-small")
@@ -110,6 +125,13 @@ def _whisper_files_present(name: str) -> bool:
     return (d / "model.bin").is_file() and (d / "config.json").is_file()
 
 
+def _vosk_files_present(name: str = VOSK_MODEL) -> bool:
+    from ..pipeline.transcribe import VOSK_MODEL_REQUIRED
+
+    d = model_dir(name)
+    return d.is_dir() and all((d / sub).exists() for sub in VOSK_MODEL_REQUIRED)
+
+
 def _silero_files_present() -> bool:
     d = model_dir("silero-vad")
     if (d / "silero_vad.onnx").is_file():
@@ -129,6 +151,8 @@ def _silero_files_present() -> bool:
 def _files_present(name: str) -> bool:
     if name in _WHISPER_MODELS:
         return _whisper_files_present(name)
+    if name == VOSK_MODEL:
+        return _vosk_files_present(name)
     if name == "silero-vad":
         return _silero_files_present()
     return model_dir(name).exists() and any(model_dir(name).iterdir())
@@ -137,6 +161,8 @@ def _files_present(name: str) -> bool:
 def _import_available(name: str) -> bool:
     if name in _WHISPER_MODELS:
         return importlib.util.find_spec("faster_whisper") is not None
+    if name == VOSK_MODEL:
+        return importlib.util.find_spec("vosk") is not None
     if name == "silero-vad":
         return importlib.util.find_spec("silero_vad") is not None
     return False
@@ -157,14 +183,28 @@ def is_available(name: str) -> bool:
 
 
 def transcribe_available() -> bool:
-    """True when at least one faster-whisper model is genuinely usable."""
-    return any(is_available(n) for n in _WHISPER_MODELS)
+    """True when at least one transcription model is genuinely usable."""
+    return is_available(VOSK_MODEL) or any(is_available(n) for n in _WHISPER_MODELS)
+
+
+def get_vosk_model() -> tuple[str, str] | None:
+    """Return ``(name, model_path)`` for Vosk, or None when unusable."""
+    if is_available(VOSK_MODEL):
+        return VOSK_MODEL, str(model_dir(VOSK_MODEL))
+    return None
 
 
 def get_transcribe_model() -> tuple[str, str] | None:
-    """Return ``(name, model_path)`` for the best available whisper model,
-    or None when no transcription model is installed. Preference order is
-    tiny -> base -> small (fastest on CPU first)."""
+    """Return ``(name, model_path)`` for the best available transcription model.
+
+    Vosk is preferred: it is the only engine that fits the 256 MB free
+    tier. faster-whisper (tiny -> base -> small) is the fallback for
+    hosts with >=1 GB RAM. Returns None when no transcription model is
+    installed.
+    """
+    vosk = get_vosk_model()
+    if vosk is not None:
+        return vosk
     for name in _WHISPER_PREFERENCE:
         if is_available(name):
             return name, str(model_dir(name))
@@ -314,6 +354,19 @@ def _install_worker(name: str) -> None:
                 raise RuntimeError(
                     "Download finished but model.bin/config.json are missing from "
                     f"{dest}; the download may have been incomplete."
+                )
+        elif name == VOSK_MODEL:
+            # Vosk model: download the official zip (checksum-verified)
+            # and extract it into the model directory. Reuses the same
+            # ensure logic as the pipeline's first-use download.
+            from ..pipeline.transcribe import ensure_vosk_model
+
+            got = ensure_vosk_model()
+            if got is None or not _vosk_files_present(name):
+                raise RuntimeError(
+                    "Vosk model download failed (see worker log); the model "
+                    "files are not present in "
+                    f"{dest}."
                 )
         elif name == "silero-vad":
             # The silero-vad package loads its ONNX model on first use; force

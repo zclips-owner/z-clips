@@ -9,3 +9,4 @@ python-dotenv>=1.0,<2
 alembic>=1.13,<2
 yt-dlp>=2026.10,<2027
 psycopg2-binary>=2.9,<3
+vosk>=0.3.45,<1

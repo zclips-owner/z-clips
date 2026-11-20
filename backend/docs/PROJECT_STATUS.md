@@ -19,8 +19,11 @@ production-ready — see "Known limitations" below.
   must be done explicitly by the owner in Admin → Users.
 - **Clip pipeline:** upload (streamed to disk, 2 GB cap) or supported
   source URL (stored only, never downloaded); ffmpeg scene detection +
-  audio-energy analysis; optional faster-whisper transcription (never
-  faked — honest "no captions" degradation when the model is missing);
+  audio-energy analysis; word-level transcription with Vosk (small
+  English) — the lightweight engine that fits the 256 MB free tier
+  (~210 MB peak for a 12 s clip, ~238 MB for 60 s; measured 2026-11-20),
+  with faster-whisper as a fallback on hosts with >=1 GB RAM; never
+  faked — honest "no captions" degradation when no engine is usable);
   9:16 rendering with ASS captions, loudness normalisation (-14 LUFS),
   direct cuts only; technical QC on every clip; job states
   queued → analyzing → rendering → qc → done/failed with logs, retries
@@ -78,8 +81,13 @@ production-ready — see "Known limitations" below.
   script (`scripts/reset_owner_password.py`).
 - SQLite is the dev default; use PostgreSQL in production.
 - Uploads are not virus-scanned.
-- Transcription needs the owner to install faster-whisper (tiny) from
-  Owner → System & Models; without it clips render without captions.
+- Transcription works on the free tier via Vosk (small English): the
+  model is downloaded once on first use (41 MB zip, checksum-verified)
+  into `storage/models/vosk-small-en` and cached for the life of the
+  container. faster-whisper remains available as a more accurate
+  fallback on hosts with >=1 GB RAM (install from Owner → System &
+  Models). Without any transcription engine, clips render without
+  captions (honest degradation, never faked).
 - YouTube live checks need a `YOUTUBE_API_KEY`; without it monitoring
   shows "not configured".
 - NayaPay QR image not yet supplied — payment page shows the number

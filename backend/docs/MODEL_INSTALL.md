@@ -26,6 +26,7 @@ pretending to work.
 
 | Model | Size (download) | Disk needed | RAM (CPU) | GPU | License |
 |---|---|---|---|---|---|
+| **Vosk (small English)** | ~41 MB | ~68 MB | ~256 MB | No — CPU only | Apache 2.0 |
 | faster-whisper (tiny) | ~75 MB | ~350 MB | ~1 GB | No — CPU only | MIT |
 | faster-whisper (base) | ~145 MB | ~500 MB | ~1 GB | No — CPU only | MIT |
 | faster-whisper (small) | ~490 MB | ~1.2 GB | ~2 GB | No — CPU only | MIT |
@@ -33,9 +34,24 @@ pretending to work.
 
 Notes:
 
+- **Vosk (small English)** — speech-to-text with word timestamps, used
+  to score candidate moments and to burn word-synced captions into
+  clips. This is the **default transcription engine** and the only one
+  that fits the 256 MB free tier: measured peak RSS ~210 MB for a 12 s
+  clip and ~238 MB for a 60 s clip (2026-11-20), versus ~630 MB for
+  faster-whisper (tiny). The model (`vosk-model-small-en-us-0.15`) is
+  downloaded once on first use (SHA-256 verified) into
+  `storage/models/vosk-small-en/` and cached for the life of the
+  container; it can also be installed explicitly from Owner → System &
+  Models. English only; accuracy is lower than Whisper. Code and model
+  weights are Apache 2.0 licensed:
+  <https://github.com/alphacep/vosk-api/blob/master/LICENSE>.
+  Pip package: `vosk`.
 - **faster-whisper (tiny / base / small)** — speech-to-text with word
   timestamps, used to score candidate moments and to burn word-synced
-  captions into clips. Code and Whisper model weights are MIT licensed:
+  captions into clips. Used as a fallback when Vosk is unavailable and
+  a faster-whisper model is installed (hosts with >=1 GB RAM only).
+  Code and Whisper model weights are MIT licensed:
   <https://github.com/SYSTRAN/faster-whisper/blob/master/LICENSE>.
   Pip package: `faster-whisper`. Model weights are downloaded from
   Hugging Face (`Systran/faster-whisper-tiny`,
@@ -60,7 +76,7 @@ Notes:
   Debian/Ubuntu); it is not a Python package and is not downloaded by
   the model installer.
 
-## What happens without faster-whisper (transparent limitation)
+## What happens without any transcription engine (transparent limitation)
 
 This is the important limitation to understand:
 
@@ -70,7 +86,8 @@ This is the important limitation to understand:
   ever invented or guessed.
 - The job log records, in plain language:
   > "Transcription model not installed — captions will be unavailable;
-  > install faster-whisper (tiny) from Owner > System & Models"
+  > install Vosk (small English) from Owner > System & Models, or
+  > faster-whisper (tiny) on a host with >=1 GB RAM"
 - QC records the caption check as "no captions expected" rather than
   passing a caption check that never ran, and candidate scoring gives
   the speech-presence component a score of 0 (it is not estimated from
@@ -83,10 +100,12 @@ This is the important limitation to understand:
 
 - CPU-only operation is fully supported; no GPU is required for any
   model above. Transcription speed on CPU depends on the machine:
-  tiny is roughly real-time to a few times real-time on a modern CPU;
-  small is several times slower.
-- Disk: at least ~350 MB free for tiny alone; ~1.2 GB free for small.
-- RAM: ~1 GB free while transcribing with tiny/base, ~2 GB with small.
+  Vosk is roughly real-time to a few times real-time on a modern CPU;
+  faster-whisper tiny is similar, small is several times slower.
+- Disk: at least ~68 MB free for Vosk alone; ~350 MB free for
+  faster-whisper tiny alone; ~1.2 GB free for small.
+- RAM: ~256 MB free while transcribing with Vosk; ~1 GB free with
+  faster-whisper tiny/base, ~2 GB with small.
 - Network is needed once, at install time, to download the pip package
   and model weights. After that, transcription runs fully offline.
 - No account, API key, or paid subscription is needed for any model.

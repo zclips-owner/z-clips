@@ -2,10 +2,16 @@
 when (and only when) a transcription model is genuinely installed —
 word-level transcription.
 
+Transcription engines, in preference order:
+1. Vosk (small English) — the lightweight engine that fits the 256 MB
+   free tier (~210 MB peak). See app/pipeline/transcribe.py.
+2. faster-whisper (tiny/base/small) — only on a >=1 GB host (~630 MB
+   peak); kept as a fallback for accuracy when it is installed.
+
 Honesty rules enforced here:
-- If faster-whisper is NOT installed, no transcript is invented. The job
-  log records the exact limitation, analysis proceeds on scene cuts +
-  audio energy only, and no caption file is produced downstream.
+- If no transcription engine is installed, no transcript is invented.
+  The job log records the exact limitation, analysis proceeds on scene
+  cuts + audio energy only, and no caption file is produced downstream.
 - Scores are computed from measured signals only (scene cuts, measured
   audio RMS, real transcript words). Without a transcript, the
   speech-presence component is 0, not a guess.
@@ -27,7 +33,8 @@ FFMPEG = "/usr/bin/ffmpeg"
 
 TRANSCRIPT_NOT_INSTALLED_MSG = (
     "Transcription model not installed — captions will be unavailable; "
-    "install faster-whisper (tiny) from Owner > System & Models"
+    "install Vosk (small English) from Owner > System & Models, or "
+    "faster-whisper (tiny) on a host with >=1 GB RAM"
 )
 
 # Words that make an opening line a strong hook (checked in the first 3s
@@ -207,14 +214,32 @@ def load_transcript_for_job(job) -> list[dict]:
 
 
 def transcribe_source(path: str, job) -> list[dict]:
-    """Transcribe with faster-whisper if (and only if) it is available.
+    """Transcribe word-by-word, preferring Vosk, falling back to faster-whisper.
 
     Returns word dicts, and writes them to the per-job transcript file.
-    Returns [] when no model is installed — the caller logs the honest
-    limitation. A transcription failure is also non-fatal: it returns []
-    and raises nothing, so analysis/render can still proceed without
-    captions (the error is recorded in the transcript file's "error").
+    Returns [] when no transcription engine is usable — the caller logs
+    the honest limitation. A transcription failure is also non-fatal: it
+    returns [] and raises nothing, so analysis/render can still proceed
+    without captions (the error is recorded in the transcript file's
+    "error").
     """
+    # 1. Vosk (small English) — the lightweight engine that fits the
+    #    256 MB free tier. transcribe_words() handles model download
+    #    (once, on first use) and never raises.
+    try:
+        from .transcribe import VOSK_MODEL_NAME, transcribe_words
+
+        words = transcribe_words(path)
+        if words:
+            payload = {"model": VOSK_MODEL_NAME, "words": words, "error": ""}
+            transcript_path(job).write_text(json.dumps(payload), encoding="utf-8")
+            return words
+    except Exception:
+        # Vosk path failed entirely — fall through to faster-whisper.
+        pass
+
+    # 2. faster-whisper — only when a model is genuinely installed
+    #    (needs >=1 GB RAM; not present on the free tier).
     from ..services.models_manager import get_transcribe_model
 
     chosen = get_transcribe_model()
@@ -226,7 +251,7 @@ def transcribe_source(path: str, job) -> list[dict]:
 
         model = WhisperModel(model_path, device="cpu", compute_type="int8")
         segments, _info = model.transcribe(str(path), word_timestamps=True, vad_filter=False)
-        words: list[dict] = []
+        words = []
         for seg in segments:
             for w in (getattr(seg, "words", None) or []):
                 words.append({
