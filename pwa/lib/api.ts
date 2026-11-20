@@ -152,6 +152,9 @@ export async function directUploadClip(
   // but the direct upload can fail while it is still starting up. Retry the
   // whole two-step flow once after a short wait, with a FRESH token each
   // time (tokens are single-use, so a consumed/expired one cannot be reused).
+  // If the phone cannot reach the backend directly at all (some networks
+  // block it), fall back to the proxied upload — that works for files under
+  // ~4.5MB, which covers short phone clips.
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) {
@@ -164,13 +167,23 @@ export async function directUploadClip(
       const isNetworkError =
         err instanceof ApiError && err.status === 502;
       if (!isNetworkError || attempt === 1) {
-        throw err;
+        break;
       }
       // Network error on the first attempt: the server was probably waking
       // up. Fall through to the retry.
     }
   }
-  throw lastError;
+  // Direct upload unreachable from this network. Try the proxied path
+  // (works for files under ~4.5MB). A large file will fail there with the
+  // size error, which is the honest result.
+  try {
+    return await apiFetch<DirectUploadResponse>("/clips", {
+      method: "POST",
+      body: form
+    });
+  } catch {
+    throw lastError;
+  }
 }
 
 async function directUploadClipOnce(
